@@ -25,7 +25,7 @@ struct SolanaRPCRequest: Codable {
         try container.encode(params, forKey: .params)
     }
     
-    init(jsonrpc: String, id: Int, method: String, params: [AnyCodable]) {
+    init(jsonrpc: String = "2.0", id: Int = 1, method: String, params: [AnyCodable]) {
         self.jsonrpc = jsonrpc
         self.id = id
         self.method = method
@@ -38,6 +38,15 @@ struct SolanaRPCRequest: Codable {
         id = try container.decode(Int.self, forKey: .id)
         method = try container.decode(String.self, forKey: .method)
         params = try container.decode([AnyCodable].self, forKey: .params)
+    }
+    
+    func urlRequest(_ url: URL) throws -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(self)
+        
+        return request
     }
 }
 

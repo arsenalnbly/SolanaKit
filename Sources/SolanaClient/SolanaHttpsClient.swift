@@ -36,9 +36,7 @@ public final class SolanaHttpsClient {
         minContextSlot: Int? = nil
     ) async throws -> SolanaRPCResponse<GetBalanceResult> {
         
-        let requestBody = SolanaRPCRequest(
-            jsonrpc: "2.0",
-            id: 1,
+        let request = try SolanaRPCRequest(
             method: "getBalance",
             params: [
                 AnyCodable(pubkey),
@@ -46,12 +44,7 @@ public final class SolanaHttpsClient {
                     "commitment": commitment
                 ])
             ]
-        )
-        
-        var request = URLRequest(url: rpcURL)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(requestBody)
+        ).urlRequest(rpcURL)
         
         return try await fetch(request, as: SolanaRPCResponse<GetBalanceResult>.self)
 
@@ -64,9 +57,7 @@ public final class SolanaHttpsClient {
         encoding: String = "json"
     ) async throws -> SolanaRPCResponse<GetTransactionResult> {
         
-        let requestBody = SolanaRPCRequest(
-            jsonrpc: "2.0",
-            id: 1,
+        let request = try SolanaRPCRequest(
             method: "getTransaction",
             params: [
                 AnyCodable(signature),
@@ -76,14 +67,33 @@ public final class SolanaHttpsClient {
                     "encoding": encoding
                 ])
             ]
-        )
-        
-        var request = URLRequest(url: rpcURL)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(requestBody)
+        ).urlRequest(rpcURL)
         
         return try await fetch(request, as: SolanaRPCResponse<GetTransactionResult>.self)
     }
+    
+    func getSignaturesForAddress(
+        address: String,
+        commitment: String = "finalized",
+        minContextSlot: Int?,
+        limit: Int = 1,
+        before: String?,
+        until: String?
+    ) async throws -> SolanaRPCResponse<[SolanaSignature]> {
+        let request = try SolanaRPCRequest(
+            method: "getSignaturesForAddress",
+            params: [
+                AnyCodable(address),
+                AnyCodable([
+                    "commitment": commitment,
+                    "limit": limit
+                ])
+            ]
+        ).urlRequest(rpcURL)
+        
+        return try await fetch(request, as: SolanaRPCResponse<[SolanaSignature]>.self)
+    }
+    
+    
 }
 
