@@ -6,6 +6,7 @@ import Foundation
     try await testGetBalance()
     try await testGetTransaction()
     try await testGetFalseTransaction()
+    try await testGetSignaturesForAddress()
 }
 
 @Test func testGetTransaction() async throws {
@@ -36,7 +37,6 @@ import Foundation
     let transaction = try await client.getTransaction(signature: "false_signature")
     #expect(transaction.error != nil)
     print(transaction.error?.message)
-    
 }
 
 @Test func testGetBalance() async throws {
@@ -56,4 +56,38 @@ import Foundation
     let result = balance.result
     let expectedResult = expectedBalance.result
     #expect(result?.value == expectedResult?.value)
+}
+
+@Test func testGetSignaturesForAddress() async throws {
+    print("testGetSignaturesForAddress started...")
+    let client = SolanaHttpsClient()
+    let signatures = try await client.getSignaturesForAddress(
+        address: "83astBRguLMdt2h5U1Tpdq5tjFoJ6noeGwaY3mDLVcri",
+        commitment: "finalized",
+        minContextSlot: nil,
+        limit: 10,
+        before: nil,
+        until: nil
+    )
+    
+    let expectedJSON = MockData.SignaturesForAddressJsonResponse
+    
+    let expectedSignatures = try JSONDecoder().decode(SolanaRPCResponse<[SolanaSignature]>.self, from: expectedJSON.data(using: .utf8)!)
+    
+    // Asserting SolanaRPCResponse
+    #expect(signatures.jsonrpc == expectedSignatures.jsonrpc)
+    #expect(signatures.id == expectedSignatures.id)
+    
+    // Asserting [SolanaSignature] result
+    let result = signatures.result
+    let expectedResult = expectedSignatures.result
+    #expect(result?.count == expectedResult?.count)
+    
+    for i in 0..<result!.count {
+        if let signature = result?[i], let expectedSignature = expectedSignatures.result?[i] {
+            #expect(signature.signature == expectedSignature.signature)
+            #expect(signature.slot == expectedSignature.slot)
+            #expect(signature.blockTime == expectedSignature.blockTime)
+        }
+    }
 }
