@@ -8,5 +8,6 @@
 struct SolanaRPCResponse<T: Codable>: Codable {
     let jsonrpc: String
     let result: T?
+    let error: SolanaErrorResponse?
     let id: Int
 }

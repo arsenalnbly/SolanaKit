@@ -5,6 +5,7 @@ import Foundation
 @Test func testAll() async throws {
     try await testGetBalance()
     try await testGetTransaction()
+    try await testGetFalseTransaction()
 }
 
 @Test func testGetTransaction() async throws {
@@ -26,6 +27,15 @@ import Foundation
     #expect(result?.blockTime == expectedResult?.blockTime)
     #expect(result?.slot == expectedResult?.slot)
     #expect(result?.version == expectedResult?.version)
+    
+}
+
+@Test func testGetFalseTransaction() async throws {
+    print("testGetFalseTransaction started...")
+    let client = SolanaHttpsClient()
+    let transaction = try await client.getTransaction(signature: "false_signature")
+    #expect(transaction.error != nil)
+    print(transaction.error?.message)
     
 }
 
