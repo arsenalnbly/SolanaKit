@@ -6,7 +6,7 @@
 //
 
 public enum SolscanResponse<T: Codable>: Codable {
-    case success(success: Bool, data: SuccessResponse)
+    case success(success: Bool, data: T)
     case error(success: Bool, errors: ErrorResponse)
     
     enum CodingKeys: String, CodingKey {
@@ -17,7 +17,7 @@ public enum SolscanResponse<T: Codable>: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let success = try container.decode(Bool.self, forKey: .success)
         
-        if let data = try container.decodeIfPresent(SuccessResponse.self, forKey: .data) {
+        if let data = try container.decodeIfPresent(T.self, forKey: .data) {
             self = .success(success: success, data: data)
         } else if let errors = try container.decodeIfPresent(ErrorResponse.self, forKey: .errors) {
             self = .error(success: success, errors: errors)
@@ -42,11 +42,6 @@ public enum SolscanResponse<T: Codable>: Codable {
             try container.encode(success, forKey: .success)
             try container.encode(errors, forKey: .errors)
         }
-    }
-    
-    public struct SuccessResponse: Codable {
-        let total: Int
-        let items: [T]
     }
     
     public struct ErrorResponse: Codable {

@@ -43,7 +43,6 @@ struct SolscanRequest {
                 URLQueryItem(name: key, value: value)
             }
         }
-        print(components?.url?.absoluteString)
         
         return components?.url
     }

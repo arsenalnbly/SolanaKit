@@ -15,7 +15,7 @@ public struct TransactionDetail: Codable {
     let status: Int
     let compute_units_consumed: Int
     let priority_fee: Int
-    let reward: Int?
+    let reward: [Int]
     let sol_bal_change: [SolBalanceChange]?
     let token_bal_change: [TokenBalanceChange]?
     let programs_involved: [String]?

@@ -12,7 +12,7 @@ public final class SolscanHttpsClient {
     private let baseURL: URL
     private let apiKey: String?
     
-    public init(baseURL: String, apiKey: String? = nil) {
+    public init(baseURL: String = "https://pro-api.solscan.io/v2.0/", apiKey: String? = nil) {
         self.baseURL = URL(string: baseURL)!
         self.apiKey = apiKey
     }
@@ -25,30 +25,48 @@ public final class SolscanHttpsClient {
             throw URLError(.badServerResponse)
         }
         
-        return try JSONDecoder().decode(T.self, from: data)
+        let processedData = RentEpochClampInterceptor.processResponseData(data)
+        return try JSONDecoder().decode(T.self, from: processedData)
     }
     
     private func executeRequest<T: Decodable>(_ solscanRequest: SolscanRequest, as type: T.Type) async throws -> T {
-        guard let urlRequest = solscanRequest.buildURLRequest(with: baseURL) else {
+        guard var urlRequest = solscanRequest.buildURLRequest(with: baseURL) else {
             throw URLError(.badURL)
+        }
+        if let apiKey = self.apiKey {
+            urlRequest.setValue(apiKey, forHTTPHeaderField: "token")
         }
         
         return try await fetch(urlRequest, as: type)
     }
     
-    public func getAccountTransactions(address: String, limit: Int? = nil, before: String? = nil) async throws -> SolscanResponse<AccountTransactions> {
+    public func getAccountTransactions(address: String, limit: Int? = nil, before: String? = nil) async throws -> SolscanResponse<[AccountTransactions]> {
         let request = SolscanRequest.accountTransactions(address: address, limit: limit, before: before)
-        return try await executeRequest(request, as: SolscanResponse<AccountTransactions>.self)
+        return try await executeRequest(request, as: SolscanResponse<[AccountTransactions]>.self)
     }
     
-    public func getAccountDetail(address: String) async throws -> SolscanResponse<AccountDetail> {
+    public func getAccountDetails(address: String) async throws -> SolanaAccountWrapper? {
         let request = SolscanRequest.accountDetail(address: address)
-        return try await executeRequest(request, as: SolscanResponse<AccountDetail>.self)
+        let response =  try await executeRequest(request, as: SolscanResponse<AccountDetail>.self)
+        
+        switch response {
+        case .success(success: _, data: let data):
+            return SolanaAccountWrapper(data)
+        case .error(success: _, errors: let errors):
+            print("error retrieving acc details from solscan: \(errors.message)")
+            return nil
+        }
     }
     
-    public func getTransactionDetail(signature: String) async throws -> SolscanResponse<TransactionDetail> {
+    public func getTransactionDetail(signature: String) async throws -> SolanaTransactionWrapper? {
         let request = SolscanRequest.transactionDetail(signature: signature)
-        return try await executeRequest(request, as: SolscanResponse<TransactionDetail>.self)
+        let response = try await executeRequest(request, as: SolscanResponse<TransactionDetail>.self)
+        switch response {
+        case .success(success: _, data: let result):
+            return SolanaTransactionWrapper(result)
+        case .error(success: _, errors: let errors):
+            return nil
+        }
     }
     
     public func getChainInfo() async throws -> SolscanResponse<ChainInfo> {

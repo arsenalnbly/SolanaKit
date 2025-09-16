@@ -7,10 +7,10 @@
 
 public struct AccountDetail: Codable {
     let account: String
-    let lamports: Int
+    let lamports: UInt64
     let type: String
     let executable: Bool
     let owner_program: String
-    let rent_epoch: Int
+    let rent_epoch: UInt64
     let is_oncurve: Bool
 }
