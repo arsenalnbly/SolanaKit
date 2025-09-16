@@ -17,12 +17,12 @@ public struct TokenBalance: Codable {
     let mint: String
     let owner: String?
     let programId: String?
-    let uiTokenAmounnt: UITokenAmount
+    let uiTokenAmount: UITokenAmount
 }
 
 public struct UITokenAmount: Codable {
     let amount: String
     let decimals: Int
-    let uiAmount: Int?
+    let uiAmount: Float
     let uiAmountString: String
 }
