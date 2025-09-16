@@ -7,10 +7,10 @@
 
 public struct SolanaAccountWrapper {
     let account: String
-    let lamports: Int
+    let lamports: UInt64
     let executable: Bool
     let owner_program: String
-    let rent_epoch: Int
+    let rent_epoch: UInt64
     
     public init(_ SolscanAcc: AccountDetail) {
         self.account = SolscanAcc.account
@@ -22,9 +22,9 @@ public struct SolanaAccountWrapper {
     
     public init(_ SolanaAcc: SolanaAccInfo,_ address: String) {
         self.account = address
-        self.lamports = Int(SolanaAcc.lamports)
+        self.lamports = SolanaAcc.lamports
         self.executable = SolanaAcc.executable
         self.owner_program = SolanaAcc.owner
-        self.rent_epoch = Int(SolanaAcc.rentEpoch)
+        self.rent_epoch = SolanaAcc.rentEpoch
     }
 }
