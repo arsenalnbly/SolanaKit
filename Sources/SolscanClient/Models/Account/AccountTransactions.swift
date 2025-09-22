@@ -10,7 +10,7 @@ public struct AccountTransactions: Codable {
     let fee: Int
     let status: String
     let signer: [String]
-    let block_time: String
+    let block_time: Int
     let tx_hash: String
     let parsed_instructions: [ParsedInstruction]
     let program_ids: [String]

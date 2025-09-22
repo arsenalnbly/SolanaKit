@@ -17,7 +17,7 @@ public final class SolscanHttpsClient {
         self.apiKey = apiKey
     }
     
-    private func fetch<T: Decodable>(_ request: URLRequest, as type: T.Type) async throws -> T {
+    private func fetch(_ request: URLRequest) async throws -> Data {
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse,
@@ -25,6 +25,10 @@ public final class SolscanHttpsClient {
             throw URLError(.badServerResponse)
         }
         
+        return data
+    }
+    
+    private func parse<T: Decodable>(_ data: Data, as type: T.Type) throws -> T {
         let processedData = RentEpochClampInterceptor.processResponseData(data)
         return try JSONDecoder().decode(T.self, from: processedData)
     }
@@ -37,12 +41,32 @@ public final class SolscanHttpsClient {
             urlRequest.setValue(apiKey, forHTTPHeaderField: "token")
         }
         
-        return try await fetch(urlRequest, as: type)
+        let data = try await fetch(urlRequest)
+        
+        //add caching here
+        
+        return try parse(data, as: type)
     }
     
-    public func getAccountTransactions(address: String, limit: Int? = nil, before: String? = nil) async throws -> SolscanResponse<[AccountTransactions]> {
+    public func getAccountTransactions(address: String, limit: Int? = nil, before: String? = nil) async throws -> [SolanaTransactionWrapper] {
         let request = SolscanRequest.accountTransactions(address: address, limit: limit, before: before)
-        return try await executeRequest(request, as: SolscanResponse<[AccountTransactions]>.self)
+        
+        var transactions = [SolanaTransactionWrapper]()
+        
+        let response = try await executeRequest(request, as: SolscanResponse<[AccountTransactions]>.self)
+        
+        switch response {
+        case .success(success: let success, data: let data):
+            for transaction in data {
+//                print("getting data for \(transaction.tx_hash)")
+                if let transactionResponse = try await getTransactionDetail(signature: transaction.tx_hash) {
+                    transactions.append(transactionResponse)
+                }
+            }
+            return transactions
+        case .error(success: let success, errors: let errors):
+            return transactions
+        }
     }
     
     public func getAccountDetails(address: String) async throws -> SolanaAccountWrapper? {

@@ -3,10 +3,11 @@ import Foundation
 @testable import SolanaKit
 
 @Test func testAll() async throws {
-    try await testGetBalance()
-    try await testGetTransaction()
-    try await testGetFalseTransaction()
-    try await testGetSignaturesForAddress()
+//    try await testGetBalance()
+//    try await testGetTransaction()
+//    try await testGetFalseTransaction()
+//    try await testGetSignaturesForAddress()
+    try await testGetSolscanTransactionHistory()
 }
 
 @Test func testGetTransaction() async throws {
@@ -126,5 +127,23 @@ import Foundation
     let account = try await client.getAccountDetails(address: address)
     print("18446744073709552000" < "18446744073709551615")
     #expect(account != nil)
+}
+
+@Test func testGetSolscanTransactionDetail() async throws {
+    let signature = "xRVL4GREejZMjg1J5KRinshg6MY9TcHhwVZLoBS7FW6hckPFTHMA5NMb96zhTS6hQA9uNLMu5bGtaP2oNbDtm8B"
+    let client = SolscanHttpsClient(apiKey: Config.solscanApiKey)
+    
+    let transaction = try await client.getTransactionDetail(signature: signature)
+    
+    #expect(transaction!.slot == 355428971)
+}
+
+@Test func testGetSolscanTransactionHistory() async throws {
+    let address = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
+    let client = SolscanHttpsClient(apiKey: Config.solscanApiKey)
+    let transactions = try await client.getAccountTransactions(address: address, before: "3pyJH9FN53t3231qzUzkKbvLnBwYLWTMwQJG69pNyUcPG8QsZiRaX2ReE3fR23kCwaCTbca7v1wHpV4UDum2AzTg")
+    
+    print(transactions.count)
+    
 }
 
