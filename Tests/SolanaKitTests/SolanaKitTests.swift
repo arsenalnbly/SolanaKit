@@ -13,7 +13,7 @@ import Foundation
 @Test func testGetTransaction() async throws {
     print("testGetTransatcion started... ")
     let client = SolanaHttpsClient(baseURL: "https://api.mainnet-beta.solana.com")
-    let solscanClient = SolscanHttpsClient(apiKey: Config.solscanApiKey)
+    let solscanClient = try SolscanHttpsClient(apiKey: Config.solscanApiKey)
     
     let expectedJSON = MockData.TransactionJsonResponse
     
@@ -109,21 +109,10 @@ import Foundation
     }
 }
 
-@Test func testPublicSolscan() async throws {
-    let client = SolscanHttpsClient(baseURL: "https://public-api.solscan.io")
-    let chainInfo = try await client.getChainInfo()
-    switch chainInfo {
-    case .success(success: let success, data: let data):
-        #expect(true)
-    case .error(success: let success, errors: let errors):
-        #expect(Bool(false))
-    }
-}
-
 @Test func testSolScanGetAccount() async throws {
     let address = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
     
-    let client = SolscanHttpsClient(apiKey: Config.solscanApiKey)
+    let client = try SolscanHttpsClient(apiKey: Config.solscanApiKey)
     let account = try await client.getAccountDetails(address: address)
     print("18446744073709552000" < "18446744073709551615")
     #expect(account != nil)
@@ -131,7 +120,7 @@ import Foundation
 
 @Test func testGetSolscanTransactionDetail() async throws {
     let signature = "xRVL4GREejZMjg1J5KRinshg6MY9TcHhwVZLoBS7FW6hckPFTHMA5NMb96zhTS6hQA9uNLMu5bGtaP2oNbDtm8B"
-    let client = SolscanHttpsClient(apiKey: Config.solscanApiKey)
+    let client = try SolscanHttpsClient(apiKey: Config.solscanApiKey)
     
     let transaction = try await client.getTransactionDetail(signature: signature)
     
@@ -140,10 +129,38 @@ import Foundation
 
 @Test func testGetSolscanTransactionHistory() async throws {
     let address = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
-    let client = SolscanHttpsClient(apiKey: Config.solscanApiKey)
-    let transactions = try await client.getAccountTransactions(address: address, before: "3pyJH9FN53t3231qzUzkKbvLnBwYLWTMwQJG69pNyUcPG8QsZiRaX2ReE3fR23kCwaCTbca7v1wHpV4UDum2AzTg")
+    let client = try SolscanHttpsClient(apiKey: Config.solscanApiKey)
+    let transactions = try await client.getAccountTransactions(address: address)
     
     print(transactions.count)
     
 }
 
+@Test func testTextCache() async throws {
+    let address = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
+    
+    let cachesPath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+    let cacheDirectory = cachesPath.appendingPathComponent("SolscanCache", isDirectory: true)
+    
+    let client = try SolscanHttpsClient(apiKey: Config.solscanApiKey)
+    let account = try await client.getAccountDetails(address: "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj")
+    try client.close()
+    
+    let db = try TextCacheStore(
+        name: "solscan_cache",
+        directory: cacheDirectory
+    )
+    
+    var accountData = try db.get(address)
+    #expect(!accountData!.isEmpty)
+    accountData = RentEpochClampInterceptor.processResponseData(accountData!)
+    // Decode the full response, not just AccountDetail
+    let response = try JSONDecoder().decode(SolscanResponse<AccountDetail>.self, from: accountData!)
+    
+    switch response {
+    case .success(success: _, data: let accountDB):
+        #expect(account?.lamports == accountDB.lamports)
+    case .error(success: _, errors: let errors):
+        throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: errors.message])
+    }
+}
