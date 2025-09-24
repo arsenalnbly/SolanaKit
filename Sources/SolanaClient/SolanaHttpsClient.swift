@@ -11,19 +11,17 @@ import Foundation
 @available(macOS 10.15.0, *)
 public final class SolanaHttpsClient {
     
-    typealias RequestType = SolanaRPCRequest
-    
-    typealias AccountInfoType = SolanaAccInfo
-    typealias TransactionDetailsType = SolanaRPCResponse<GetTransactionResult>
-    typealias TransactionsType = SolanaRPCResponse<[SolanaSignature]>
-    
-    internal let baseURL: URL
+    private var baseURL: URL
     
     public init(baseURL: String = "https://api.devnet.solana.com", apiKey: String? = nil) {
         self.baseURL = URL(string: baseURL)!
     }
     
-    internal func fetch<T: Decodable>(_ request: URLRequest, as type: T.Type) async throws -> T {
+    public func switchNetworkTo(_ network: SolanaNetwork) {
+        self.baseURL = URL(string: network.rpcURL)!
+    }
+    
+    private func fetch<T: Decodable>(_ request: URLRequest, as type: T.Type) async throws -> T {
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
@@ -40,7 +38,7 @@ public final class SolanaHttpsClient {
     
     func getAccountDetails(
         address: String
-    ) async throws -> SolanaAccountWrapper? {
+    ) async throws -> SolanaKitAccount? {
         
         let request = try SolanaRPCRequest(
             method: "getAccountInfo",
@@ -53,7 +51,7 @@ public final class SolanaHttpsClient {
         var accDetails: SolanaAccInfo?
         switch response {
         case .success(jsonrpc: _, result: let result, id: _):
-            return SolanaAccountWrapper(result.value, address)
+            return SolanaKitAccount(result.value, address)
         case .error(jsonrpc: _, error: let error, id: _):
             return nil
         }
@@ -61,7 +59,7 @@ public final class SolanaHttpsClient {
     
     func getTransactionDetails(
         signature: String
-    ) async throws -> SolanaTransactionWrapper? {
+    ) async throws -> SolanaKitTransaction? {
         
         let request = try SolanaRPCRequest(
             method: "getTransaction",
@@ -74,10 +72,10 @@ public final class SolanaHttpsClient {
         ).urlRequest(baseURL)
         
         let response = try await fetch(request, as: SolanaRPCResponse<GetTransactionResult>.self)
-        let txDetails : SolanaTransactionWrapper?
+        let txDetails : SolanaKitTransaction?
         switch response {
         case .success(jsonrpc: _, result: let result, id: _):
-            return SolanaTransactionWrapper(result, txHash: signature)
+            return SolanaKitTransaction(result, txHash: signature)
         case .error(jsonrpc: _, error: _, id: _):
             return nil
         }

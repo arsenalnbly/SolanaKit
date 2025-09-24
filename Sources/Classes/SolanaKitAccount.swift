@@ -5,7 +5,7 @@
 //  Created by arsenal on 11.09.25.
 //
 
-public struct SolanaAccountWrapper {
+public struct SolanaKitAccount: Sendable {
     let account: String
     let lamports: UInt64
     let executable: Bool

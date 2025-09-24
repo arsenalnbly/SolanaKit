@@ -11,23 +11,11 @@ import Foundation
 public final class SolscanHttpsClient {
     private let baseURL: URL
     private let apiKey: String?
-    private let db: TextCacheStore
+//    private let db: TextCacheStore
     
-    public init(baseURL: String = "https://pro-api.solscan.io/v2.0/", apiKey: String? = nil) throws {
+    public init(baseURL: String = "https://pro-api.solscan.io/v2.0/", apiKey: String? = nil) {
         self.baseURL = URL(string: baseURL)!
         self.apiKey = apiKey
-
-        let cachesPath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        let cacheDirectory = cachesPath.appendingPathComponent("SolscanCache", isDirectory: true)
-
-        self.db = try TextCacheStore(
-            name: "solscan_cache",
-            directory: cacheDirectory,
-        )
-    }
-    
-    deinit {
-        try? db.close()
     }
     
     private func fetch(_ request: URLRequest) async throws -> Data {
@@ -53,29 +41,29 @@ public final class SolscanHttpsClient {
         if let apiKey = self.apiKey {
             urlRequest.setValue(apiKey, forHTTPHeaderField: "token")
         }
-
-        // Check cache first
-        if let fromCache = try db.get(key), !fromCache.isEmpty {
-            return try parse(fromCache, as: type)
-        }
-
+//
+//        // Check cache first
+//        if let fromCache = try db.get(key), !fromCache.isEmpty {
+//            return try parse(fromCache, as: type)
+//        }
+//
         // Cache miss - fetch from network
         let data = try await fetch(urlRequest)
-
-        // Cache the response
-        try db.set(data, forKey: key)
+//
+//        // Cache the response
+//        try db.set(data, forKey: key)
 
         return try parse(data, as: type)
     }
+//    
+//    public func close() throws { // DEBUG
+//        try db.close()
+//    }
     
-    public func close() throws { // DEBUG
-        try db.close()
-    }
-    
-    public func getAccountTransactions(address: String, limit: Int = 10, before: String? = nil) async throws -> [SolanaTransactionWrapper] {
+    public func getAccountTransactions(address: String, limit: Int = 10, before: String? = nil) async throws -> [SolanaKitTransaction] {
         let request = SolscanRequest.accountTransactions(address: address, limit: limit, before: before)
         
-        var transactions = [SolanaTransactionWrapper]()
+        var transactions = [SolanaKitTransaction]()
         let key = "\(address).\(before ?? "").\(limit)"
         
         let response = try await executeRequest(request, key: key, as: SolscanResponse<[AccountTransactions]>.self)
@@ -94,25 +82,25 @@ public final class SolscanHttpsClient {
         }
     }
     
-    public func getAccountDetails(address: String) async throws -> SolanaAccountWrapper? {
+    public func getAccountDetails(address: String) async throws -> SolanaKitAccount? {
         let request = SolscanRequest.accountDetail(address: address)
         let response =  try await executeRequest(request, key: address, as: SolscanResponse<AccountDetail>.self)
         
         switch response {
         case .success(success: _, data: let data):
-            return SolanaAccountWrapper(data)
+            return SolanaKitAccount(data)
         case .error(success: _, errors: let errors):
             print("error retrieving acc details from solscan: \(errors.message)")
             return nil
         }
     }
     
-    public func getTransactionDetail(signature: String) async throws -> SolanaTransactionWrapper? {
+    public func getTransactionDetail(signature: String) async throws -> SolanaKitTransaction? {
         let request = SolscanRequest.transactionDetail(signature: signature)
         let response = try await executeRequest(request, key: signature, as: SolscanResponse<TransactionDetail>.self)
         switch response {
         case .success(success: _, data: let result):
-            return SolanaTransactionWrapper(result)
+            return SolanaKitTransaction(result)
         case .error(success: _, errors: _):
             return nil
         }

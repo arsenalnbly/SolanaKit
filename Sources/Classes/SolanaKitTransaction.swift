@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct SolanaTransactionWrapper {
+public struct SolanaKitTransaction: Sendable {
     let txHash: String
     let blockTime: Int64
     let slot: Int64?
@@ -106,7 +106,7 @@ public struct SolanaTransactionWrapper {
     }
 }
 
-public struct SolBalanceChangeWrapper {
+public struct SolBalanceChangeWrapper : Sendable{
     let address: String
     let preBalance: String
     let postBalance: String
@@ -127,7 +127,7 @@ public struct SolBalanceChangeWrapper {
     }
 }
 
-public struct TokenBalanceChangeWrapper {
+public struct TokenBalanceChangeWrapper : Sendable {
     let address: String
     let changeType: String
     let changeAmount: String
@@ -166,7 +166,7 @@ public struct TokenBalanceChangeWrapper {
     }
 }
 
-public struct ParsedInstructionWrapper {
+public struct ParsedInstructionWrapper : Sendable {
     let type: String
     let program: String
     let programId: String
