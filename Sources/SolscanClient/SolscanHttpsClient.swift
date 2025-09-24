@@ -11,10 +11,23 @@ import Foundation
 public final class SolscanHttpsClient {
     private let baseURL: URL
     private let apiKey: String?
+    private let db: TextCacheStore
     
-    public init(baseURL: String = "https://pro-api.solscan.io/v2.0/", apiKey: String? = nil) {
+    public init(baseURL: String = "https://pro-api.solscan.io/v2.0/", apiKey: String? = nil) throws {
         self.baseURL = URL(string: baseURL)!
         self.apiKey = apiKey
+
+        let cachesPath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let cacheDirectory = cachesPath.appendingPathComponent("SolscanCache", isDirectory: true)
+
+        self.db = try TextCacheStore(
+            name: "solscan_cache",
+            directory: cacheDirectory,
+        )
+    }
+    
+    deinit {
+        try? db.close()
     }
     
     private func fetch(_ request: URLRequest) async throws -> Data {
@@ -33,30 +46,42 @@ public final class SolscanHttpsClient {
         return try JSONDecoder().decode(T.self, from: processedData)
     }
     
-    private func executeRequest<T: Decodable>(_ solscanRequest: SolscanRequest, as type: T.Type) async throws -> T {
+    private func executeRequest<T: Decodable>(_ solscanRequest: SolscanRequest, key: String, as type: T.Type) async throws -> T {
         guard var urlRequest = solscanRequest.buildURLRequest(with: baseURL) else {
             throw URLError(.badURL)
         }
         if let apiKey = self.apiKey {
             urlRequest.setValue(apiKey, forHTTPHeaderField: "token")
         }
-        
+
+        // Check cache first
+        if let fromCache = try db.get(key), !fromCache.isEmpty {
+            return try parse(fromCache, as: type)
+        }
+
+        // Cache miss - fetch from network
         let data = try await fetch(urlRequest)
-        
-        //add caching here
-        
+
+        // Cache the response
+        try db.set(data, forKey: key)
+
         return try parse(data, as: type)
     }
     
-    public func getAccountTransactions(address: String, limit: Int? = nil, before: String? = nil) async throws -> [SolanaTransactionWrapper] {
+    public func close() throws { // DEBUG
+        try db.close()
+    }
+    
+    public func getAccountTransactions(address: String, limit: Int = 10, before: String? = nil) async throws -> [SolanaTransactionWrapper] {
         let request = SolscanRequest.accountTransactions(address: address, limit: limit, before: before)
         
         var transactions = [SolanaTransactionWrapper]()
+        let key = "\(address).\(before ?? "").\(limit)"
         
-        let response = try await executeRequest(request, as: SolscanResponse<[AccountTransactions]>.self)
+        let response = try await executeRequest(request, key: key, as: SolscanResponse<[AccountTransactions]>.self)
         
         switch response {
-        case .success(success: let success, data: let data):
+        case .success(success: _, data: let data):
             for transaction in data {
 //                print("getting data for \(transaction.tx_hash)")
                 if let transactionResponse = try await getTransactionDetail(signature: transaction.tx_hash) {
@@ -64,14 +89,14 @@ public final class SolscanHttpsClient {
                 }
             }
             return transactions
-        case .error(success: let success, errors: let errors):
+        case .error(success: _, errors: _):
             return transactions
         }
     }
     
     public func getAccountDetails(address: String) async throws -> SolanaAccountWrapper? {
         let request = SolscanRequest.accountDetail(address: address)
-        let response =  try await executeRequest(request, as: SolscanResponse<AccountDetail>.self)
+        let response =  try await executeRequest(request, key: address, as: SolscanResponse<AccountDetail>.self)
         
         switch response {
         case .success(success: _, data: let data):
@@ -84,34 +109,34 @@ public final class SolscanHttpsClient {
     
     public func getTransactionDetail(signature: String) async throws -> SolanaTransactionWrapper? {
         let request = SolscanRequest.transactionDetail(signature: signature)
-        let response = try await executeRequest(request, as: SolscanResponse<TransactionDetail>.self)
+        let response = try await executeRequest(request, key: signature, as: SolscanResponse<TransactionDetail>.self)
         switch response {
         case .success(success: _, data: let result):
             return SolanaTransactionWrapper(result)
-        case .error(success: _, errors: let errors):
+        case .error(success: _, errors: _):
             return nil
         }
     }
     
-    public func getChainInfo() async throws -> SolscanResponse<ChainInfo> {
-        let request = SolscanRequest.chainInfo()
-        return try await executeRequest(request, as: SolscanResponse<ChainInfo>.self)
-    }
-    
-    public func getTokenHolders(
-        tokenAddress: String,
-        page: Int? = nil,
-        pageSize: Int? = nil,
-        fromAmount: String? = nil,
-        toAmount: String? = nil
-    ) async throws -> SolscanResponse<TokenHolders> {
-        let request = SolscanRequest.tokenHolders(
-            tokenAddress: tokenAddress,
-            page: page,
-            page_size: pageSize,
-            from_amount: fromAmount,
-            to_amount: toAmount
-        )
-        return try await executeRequest(request, as: SolscanResponse<TokenHolders>.self)
-    }
+//    public func getChainInfo() async throws -> SolscanResponse<ChainInfo> {
+//        let request = SolscanRequest.chainInfo()
+//        return try await executeRequest(request, as: SolscanResponse<ChainInfo>.self)
+//    }
+//    
+//    public func getTokenHolders(
+//        tokenAddress: String,
+//        page: Int? = nil,
+//        pageSize: Int? = nil,
+//        fromAmount: String? = nil,
+//        toAmount: String? = nil
+//    ) async throws -> SolscanResponse<TokenHolders> {
+//        let request = SolscanRequest.tokenHolders(
+//            tokenAddress: tokenAddress,
+//            page: page,
+//            page_size: pageSize,
+//            from_amount: fromAmount,
+//            to_amount: toAmount
+//        )
+//        return try await executeRequest(request, as: SolscanResponse<TokenHolders>.self)
+//    }
 }
