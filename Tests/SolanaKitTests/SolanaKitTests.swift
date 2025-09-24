@@ -19,11 +19,11 @@ import Foundation
     
     let expectedTransaction = try JSONDecoder().decode(SolanaRPCResponse<GetTransactionResult>.self, from: expectedJSON.data(using: .utf8)!)
     
-    let expectedTransactionObj : SolanaTransactionWrapper
+    let expectedTransactionObj : SolanaKitTransaction
     
     switch expectedTransaction {
     case .success(jsonrpc: _, result: let result, id: _):
-        expectedTransactionObj = SolanaTransactionWrapper(result, txHash: "3pyJH9FN53t3231qzUzkKbvLnBwYLWTMwQJG69pNyUcPG8QsZiRaX2ReE3fR23kCwaCTbca7v1wHpV4UDum2AzTg")
+        expectedTransactionObj = SolanaKitTransaction(result, txHash: "3pyJH9FN53t3231qzUzkKbvLnBwYLWTMwQJG69pNyUcPG8QsZiRaX2ReE3fR23kCwaCTbca7v1wHpV4UDum2AzTg")
     case .error(jsonrpc: _, error: _, id: _):
         #expect(Bool(false)) // should never happen
         return
