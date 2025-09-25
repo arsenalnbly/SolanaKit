@@ -63,7 +63,7 @@ public final class SolanaKit: ObservableObject {
     @Published public private(set) var balance: SolanaKitAccount?
     @Published public private(set) var transactions: [SolanaKitTransaction] = []
     @Published public private(set) var connectionStatus: ConnectionStatus = .disconnected
-    @Published public private(set) var lastSyncTime: Date?
+    @Published public private(set) var lastSyncTime: Double?
     @Published public private(set) var isLoading: Bool = false
     @Published public private(set) var isBalanceLoading: Bool = false
     @Published public private(set) var isTransactionsLoading: Bool = false
@@ -100,9 +100,11 @@ public final class SolanaKit: ObservableObject {
         if let account = account {
             self.currentAccount = account
             try await self.refreshBalance()
+            try await self.refreshTransactionHistory()
         }
         
     }
+    deinit { try? self.cache.close() }
     
     // MARK: - Configuration
     
@@ -129,9 +131,10 @@ public final class SolanaKit: ObservableObject {
     
     public func refreshBalance() async throws {
         self.isBalanceLoading = true
+        defer { isBalanceLoading = false}
         
         let newBalance = try await self.fetchBalanceFromNetwork()
-        
+        self.balance = newBalance
     }
     
     // MARK: - Transaction History
@@ -141,14 +144,60 @@ public final class SolanaKit: ObservableObject {
         limit: Int = 10,
         before: String? = nil
     ) async throws -> [SolanaKitTransaction] {
-        return [SolanaKitTransaction]()
+        return self.transactions
     }
     
+    //TODO: Change to getAccountTransfer
     public func refreshTransactionHistory(
         limit: Int = 10,
         before: String? = nil
     ) async throws {
+        guard let account = currentAccount else { throw SolanaKitError.notConfigured }
+        let transactionsData = try await solscanClient.getAccountTransactions(address: account, limit: limit, before: before)
         
+        guard let transactions = try solscanClient.parse(transactionsData, as: [AccountTransactions].self) else {
+            return
+        }
+
+        guard let latestTx = transactions.first?.tx_hash else {
+            return
+        }
+        try cache.set(transactionsData, forKey: "\(account).\(before ?? "").\(limit).\(latestTx)", type: .transaction_history)
+        if self.transactions.contains(where: {
+            $0.txHash == latestTx
+        }) {
+            return
+        }
+        var index: Int = 0
+        for transaction in transactions {
+            if self.transactions.contains(where: {
+                $0.txHash == transaction.tx_hash
+            }) {
+                continue
+            }
+            let transactionData : Data
+            if cache.contains(transaction.tx_hash) {
+                transactionData = try cache.get(transaction.tx_hash)!
+            } else {
+                transactionData = try await solscanClient.getTransactionDetail(signature: transaction.tx_hash)
+                try cache.set(transactionData, forKey: transaction.tx_hash, type: .transaction_details)
+            }
+            let parsedTransaction = try solscanClient.parse(transactionData, as: TransactionDetail.self)
+            self.transactions.insert(SolanaKitTransaction(parsedTransaction!), at: index)
+            index += 1
+        }
+        
+    }
+    
+    public func getLatestTxHash() async throws -> String? {
+        guard let account = currentAccount else { throw SolanaKitError.notConfigured }
+        let transactionsData = try await solscanClient.getAccountTransactions(address: account)
+        
+        guard var transactions = try solscanClient.parse(transactionsData, as: [AccountTransactions].self) else {
+            return nil
+        }
+
+        return transactions.first?.tx_hash
     }
     
     public func getTransactionDetails(signature: String) async throws -> SolanaKitTransaction? {
@@ -164,7 +213,11 @@ public final class SolanaKit: ObservableObject {
     }
     
     public func isDataStale(threshold: TimeInterval? = nil) -> Bool {
-        return false
+        guard let threshold = threshold else { return false }
+        guard let lastSyncTime = self.lastSyncTime else { return false }
+        
+        let now = Date().timeIntervalSince1970
+        return now - lastSyncTime > threshold
     }
     
     // MARK: - Cache Management
@@ -200,7 +253,13 @@ public final class SolanaKit: ObservableObject {
     private func ensureConfigured() throws {}
     
     private func fetchBalanceFromNetwork() async throws -> SolanaKitAccount? {
-        return nil
+        let accountData = try await solscanClient.getAccountDetails(address: currentAccount!)
+        guard !accountData.isEmpty else { return nil }
+        guard let account = try solscanClient.parse(accountData, as: AccountDetail.self) else {
+            return nil
+        }
+        try cache.set(accountData, forKey: currentAccount!, type: .account_details)
+        return SolanaKitAccount(account)
     }
     
     private func fetchTransactionsFromNetwork(

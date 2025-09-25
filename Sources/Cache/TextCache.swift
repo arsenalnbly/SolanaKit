@@ -13,6 +13,12 @@ let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
 // MARK: - Public API
 
+public enum EntryType: String {
+    case account_details
+    case transaction_details
+    case transaction_history
+}
+
 public enum TextCacheEvictionPolicy {
     case none
     case lru
@@ -86,7 +92,7 @@ public final class TextCacheStore {
     // MARK: - Public KV
 
     /// Set a UTF-8 text value with optional TTL (seconds). If `ttl` is nil, uses `defaultTTL`.
-    public func set(_ value: Data, forKey key: String, ttl: TimeInterval? = nil) throws {
+    public func set(_ value: Data, forKey key: String, ttl: TimeInterval? = nil, type : EntryType) throws {
         guard !key.isEmpty else { throw TextCacheError.invalidKey }
         try ensureOpen()
 
@@ -96,8 +102,8 @@ public final class TextCacheStore {
 
             // Upsert; preserve createdAt on update
             let sql = """
-            INSERT INTO entries(key, value, size_bytes, created_at, last_accessed_at, expires_at)
-            VALUES(?, ?, ?, ?, ?, ?)
+            INSERT INTO entries(key, value, size_bytes, created_at, last_accessed_at, expires_at, type)
+            VALUES(?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(key) DO UPDATE SET
                 value = excluded.value,
                 size_bytes = excluded.size_bytes,
@@ -114,6 +120,7 @@ public final class TextCacheStore {
                 sqlite3_bind_double(stmt, 4, now)
                 sqlite3_bind_double(stmt, 5, now)
                 if let exp = expires { sqlite3_bind_double(stmt, 6, exp) } else { sqlite3_bind_null(stmt, 6) }
+                try bind_text(stmt, index: 7, text: type.rawValue)
                 try stepDone(stmt)
             }
 
@@ -121,6 +128,47 @@ public final class TextCacheStore {
             if evictionPolicy != .none, capacityBytes > 0 {
                 try enforceCapacity()
             }
+        }
+    }
+    /// Get a value; returns nil if missing or expired (expired entries are deleted on access).
+    public func getByType(_ type: EntryType, limit: Int) throws -> [Data] {
+        //        guard !type.isEmpty else { throw TextCacheError.invalidKey }
+        try ensureOpen()
+        
+        return try queue.sync {
+            // Fast path: check expired and delete if needed
+            let now = Self.now()
+            
+            // read value and expiry
+            let selectSQL = "SELECT key, value, expires_at, size_bytes FROM entries WHERE type = ? LIMIT ?;"
+            
+            var return_values: [Data] = []
+            
+            try withStatement(selectSQL) { stmt in
+                try bind_text(stmt, index: 1, text: type.rawValue)
+                sqlite3_bind_int(stmt, 2, Int32(limit))
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    guard let key = stringColumn(stmt, 0) else { continue }
+                    let size = sqlite3_column_int(stmt, 3)
+                    guard let value = blobColumn(stmt, 1, size) else { continue }
+                    if sqlite3_column_type(stmt, 2) != SQLITE_NULL {
+                        let exp = sqlite3_column_double(stmt, 2)
+                        if (exp <= now) {
+                            try remove(key)
+                            continue
+                        }
+                    }
+                    return_values.append(value)
+                    // Touch last_accessed
+                    let touchSQL = "UPDATE entries SET last_accessed_at = ? WHERE key = ?;"
+                    try withStatement(touchSQL) { stmt in
+                        sqlite3_bind_double(stmt, 1, now)
+                        try bind_text(stmt, index: 2, text: key)
+                        try stepDone(stmt)
+                    }
+                }
+            }
+            return return_values
         }
     }
 
@@ -333,6 +381,17 @@ public final class TextCacheStore {
 
     // MARK: - Close
 
+    /// Drop the entries table completely and recreate it
+    public func resetTable() throws {
+        try ensureOpen()
+        try queue.sync {
+            // Drop the existing table
+            try exec("DROP TABLE IF EXISTS entries;")
+            // Recreate the table with fresh schema
+            try createSchemaIfNeeded()
+        }
+    }
+
     public func close() throws {
         if isClosed { return }
         try queue.sync {
@@ -375,7 +434,8 @@ public final class TextCacheStore {
             size_bytes INTEGER NOT NULL,
             created_at REAL NOT NULL DEFAULT (strftime('%s','now')),
             last_accessed_at REAL NOT NULL,
-            expires_at REAL NULL
+            expires_at REAL NULL,
+            type TEXT NOT NULL
         );
         """
         try exec(create)
