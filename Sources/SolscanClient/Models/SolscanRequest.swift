@@ -100,6 +100,38 @@ extension SolscanRequest {
         )
     }
     
+    static func accountTransfer(
+        address: String,
+        token_account: String,
+        from: String,
+        to: String,
+        token: String,
+        page: Int = 1,
+        page_size: Int = 10,
+        sort_order: String = "desc"
+    ) -> SolscanRequest {
+        var params = [
+            "address": address,
+            "token_account": token_account,
+            "from": from,
+            "to": to,
+            "token": token,
+            "page": String(page),
+            "page_size": String(page_size),
+            "sort_order": sort_order
+        ]
+        for key in params.keys {
+            if params[key]!.isEmpty {
+                params.removeValue(forKey: key)
+            }
+        }
+        
+        return SolscanRequest(
+            endpoint: "account/transfer",
+            queryParameters: params
+        )
+    }
+    
     static func tokenHolders(tokenAddress: String, page: Int?, page_size: Int?, from_amount: String?, to_amount: String?) -> SolscanRequest {
         var params: [String: String] = ["address": tokenAddress]
         
