@@ -83,20 +83,30 @@ public final class SolanaHttpsClient {
     
     func getTransactions(
         forAddress: String,
-        limit: Int = 1,
+        limit: Int = 10,
         before: String?,
         until: String?
     ) async throws -> SolanaRPCResponse<[SolanaSignature]> {
+        var options: [String: Any] = [
+            "limit": limit
+        ]
+
+        if let before = before, !before.isEmpty {
+            options["before"] = before
+        }
+
+        if let until = until, !until.isEmpty {
+            options["until"] = until
+        }
+
         let request = try SolanaRPCRequest(
             method: "getSignaturesForAddress",
             params: [
                 AnyCodable(forAddress),
-                AnyCodable([
-                    "limit": limit
-                ])
+                AnyCodable(options)
             ]
         ).urlRequest(baseURL)
-        
+
         return try await fetch(request, as: SolanaRPCResponse<[SolanaSignature]>.self)
     }
     
