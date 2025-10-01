@@ -171,6 +171,45 @@ public final class TextCacheStore {
             return return_values
         }
     }
+    
+    public func getAllByType(_ type: EntryType) throws -> [Data] {
+        try ensureOpen()
+        
+        return try queue.sync {
+            // Fast path: check expired and delete if needed
+            let now = Self.now()
+            
+            // read value and expiry
+            let selectSQL = "SELECT key, value, expires_at, size_bytes FROM entries WHERE type = ?;"
+            
+            var return_values: [Data] = []
+            
+            try withStatement(selectSQL) { stmt in
+                try bind_text(stmt, index: 1, text: type.rawValue)
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    guard let key = stringColumn(stmt, 0) else { continue }
+                    let size = sqlite3_column_int(stmt, 3)
+                    guard let value = blobColumn(stmt, 1, size) else { continue }
+                    if sqlite3_column_type(stmt, 2) != SQLITE_NULL {
+                        let exp = sqlite3_column_double(stmt, 2)
+                        if (exp <= now) {
+                            try remove(key)
+                            continue
+                        }
+                    }
+                    return_values.append(value)
+                    // Touch last_accessed
+                    let touchSQL = "UPDATE entries SET last_accessed_at = ? WHERE key = ?;"
+                    try withStatement(touchSQL) { stmt in
+                        sqlite3_bind_double(stmt, 1, now)
+                        try bind_text(stmt, index: 2, text: key)
+                        try stepDone(stmt)
+                    }
+                }
+            }
+            return return_values
+        }
+    }
 
     /// Get a value; returns nil if missing or expired (expired entries are deleted on access).
     public func get(_ key: String) throws -> Data? {
