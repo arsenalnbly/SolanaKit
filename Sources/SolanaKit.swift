@@ -173,7 +173,7 @@ public final class SolanaKit: ObservableObject {
         switch latestTransactions {
         case .success(_, let result, _):
             if !result.isEmpty {
-                let newTransactions = try await fetchTransactionsFromNetwork(limit: limit, from: nil, to: latest_tx)
+                let newTransactions = try await fetchTransactionsFromNetwork(limit: limit)
                 for transaction in newTransactions {
                     self.transactions.insert(transaction, at: 0)
                 }
@@ -279,7 +279,7 @@ public final class SolanaKit: ObservableObject {
         let latestTxHash : String
         
         while true {
-            let key = "\(account).\(limit).\(from ?? "").\(to ?? "")"
+            let key = "\(account).\(limit)"
             if let transfersData = try cache.get(key), !transfersData.isEmpty {
                 if let transfers = try solscanClient.parse(transfersData, as: [AccountTransfer].self) {
                     for transfer in transfers {
@@ -292,8 +292,6 @@ public final class SolanaKit: ObservableObject {
             } else {
                 let transfersData = try await solscanClient.getAccountTransfer(
                     address: account,
-                    from: from,
-                    to: to,
                     page: pageNum,
                     page_size: limit
                 )
