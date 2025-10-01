@@ -151,8 +151,12 @@ public final class SolanaKit: ObservableObject {
     @MainActor
     public func getTransactionHistory(
         limit: Int = 10,
-        before: String? = nil
+        before: String? = nil,
+        forToken: String? = nil
     ) async throws -> [AccountTransfer] {
+        if let token = forToken {
+            return self.transactions.filter({ $0.token_address == token })
+        }
         return self.transactions
     }
     
