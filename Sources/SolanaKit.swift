@@ -280,7 +280,7 @@ public final class SolanaKit: ObservableObject {
         
         print("Start fetching transactions...")
         while true {
-            let key = "\(account).\(limit)"
+            let key = "\(account).\(limit).\(pageNum)"
             if let transfersData = try cache.get(key), !transfersData.isEmpty {
                 if let transfers = try solscanClient.parse(transfersData, as: [AccountTransfer].self) {
                     for transfer in transfers {
