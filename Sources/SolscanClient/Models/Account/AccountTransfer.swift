@@ -5,7 +5,7 @@
 //  Created by arsenal on 25.09.25.
 //
 
-struct AccountTransfer: Codable {
+public struct AccountTransfer: Codable {
       let block_id: Int
       let trans_id: String
       let block_time: Int

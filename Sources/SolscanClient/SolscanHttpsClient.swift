@@ -94,6 +94,9 @@ public final class SolscanHttpsClient {
 //        )
 //        return try await executeRequest(request, as: SolscanResponse<TokenHolders>.self)
 //    }
+    public enum sortOrder: String {
+        case asc, desc
+    }
 
     public func getAccountTransfer(
         address: String,
@@ -103,7 +106,7 @@ public final class SolscanHttpsClient {
         token: String? = nil,
         page: Int = 1,
         page_size: Int = 10,
-        sort_order: String = "desc"
+        sort_order: sortOrder = .desc
     ) async throws -> Data {
         let request = SolscanRequest.accountTransfer(
             address: address,
@@ -113,7 +116,7 @@ public final class SolscanHttpsClient {
             token: token ?? "",
             page: page,
             page_size: page_size,
-            sort_order: sort_order
+            sort_order: sort_order.rawValue
         )
 
         let key = "transfer_\(address)_\(page)_\(page_size)"
