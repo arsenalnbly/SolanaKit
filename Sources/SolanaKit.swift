@@ -105,8 +105,8 @@ public final class SolanaKit: ObservableObject {
         if let account = account {
             self.currentAccount = account
             do {
-                try await self.refreshBalance()
-                try await self.refreshTransactionHistory()
+//                try await self.refreshBalance()
+//                try await self.refreshTransactionHistory()
             } catch {
                 throw SolanaKitError.networkError(error)
             }
