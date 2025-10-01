@@ -7,7 +7,7 @@
 
 public struct SolanaKitAccount: Sendable {
     let account: String
-    let lamports: UInt64
+    public var lamports: UInt64
     let executable: Bool
     let owner_program: String
     let rent_epoch: UInt64
