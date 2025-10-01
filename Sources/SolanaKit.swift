@@ -61,7 +61,7 @@ public final class SolanaKit: ObservableObject {
     // MARK: - Published Properties
     
     @Published public private(set) var balance: SolanaKitAccount?
-    @Published public private(set) var transactions: [SolanaKitTransaction] = []
+    @Published public private(set) var transactions: [AccountTransfer] = []
     @Published public private(set) var connectionStatus: ConnectionStatus = .disconnected
     @Published public private(set) var lastSyncTime: Double?
     @Published public private(set) var isLoading: Bool = false
@@ -143,61 +143,46 @@ public final class SolanaKit: ObservableObject {
     public func getTransactionHistory(
         limit: Int = 10,
         before: String? = nil
-    ) async throws -> [SolanaKitTransaction] {
+    ) async throws -> [AccountTransfer] {
         return self.transactions
     }
     
     //TODO: Change to getAccountTransfer
     public func refreshTransactionHistory(
-        limit: Int = 10,
-        before: String? = nil
+        limit: Int = 20,
+        from: String? = nil,
+        to: String? = nil,
     ) async throws {
         guard let account = currentAccount else { throw SolanaKitError.notConfigured }
-        let transactionsData = try await solscanClient.getAccountTransactions(address: account, limit: limit, before: before)
-        
-        guard let transactions = try solscanClient.parse(transactionsData, as: [AccountTransactions].self) else {
-            return
-        }
-
-        guard let latestTx = transactions.first?.tx_hash else {
-            return
-        }
-        try cache.set(transactionsData, forKey: "\(account).\(before ?? "").\(limit).\(latestTx)", type: .transaction_history)
-        if self.transactions.contains(where: {
-            $0.txHash == latestTx
-        }) {
-            return
-        }
-        var index: Int = 0
-        for transaction in transactions {
-            if self.transactions.contains(where: {
-                $0.txHash == transaction.tx_hash
-            }) {
-                continue
-            }
-            let transactionData : Data
-            if cache.contains(transaction.tx_hash) {
-                transactionData = try cache.get(transaction.tx_hash)!
-            } else {
-                transactionData = try await solscanClient.getTransactionDetail(signature: transaction.tx_hash)
-                try cache.set(transactionData, forKey: transaction.tx_hash, type: .transaction_details)
-            }
-            let parsedTransaction = try solscanClient.parse(transactionData, as: TransactionDetail.self)
-            self.transactions.insert(SolanaKitTransaction(parsedTransaction!), at: index)
-            index += 1
+        if self.transactions.isEmpty {
+            self.transactions = try fetchTransactionsFromCache()
         }
         
+        let latest_tx = self.transactions.first?.trans_id
+        let latestTransactions = try await self.solanaClient.getTransactions(forAddress: account, until: to)
+        
+        switch latestTransactions {
+        case .success(_, let result, _):
+            if !result.isEmpty {
+                let newTransactions = try await fetchTransactionsFromNetwork(limit: limit, from: nil, to: latest_tx)
+                for transaction in newTransactions {
+                    self.transactions.insert(transaction, at: 0)
+                }
+            }
+        case .error(_, _, _):
+            throw SolanaKitError.networkError(URLError(.badServerResponse))
+        }
     }
     
     public func getLatestTxHash() async throws -> String? {
         guard let account = currentAccount else { throw SolanaKitError.notConfigured }
-        let transactionsData = try await solscanClient.getAccountTransactions(address: account)
-        
-        guard var transactions = try solscanClient.parse(transactionsData, as: [AccountTransactions].self) else {
+        let latestTx = try await solanaClient.getTransactions(forAddress: account, limit: 1)
+        switch latestTx {
+        case .success(jsonrpc: _, result: let txs, id: _):
+            return txs.first?.signature
+        case .error(jsonrpc: _, error: _, id: _):
             return nil
         }
-
-        return transactions.first?.tx_hash
     }
     
     public func getTransactionDetails(signature: String) async throws -> SolanaKitTransaction? {
@@ -262,11 +247,60 @@ public final class SolanaKit: ObservableObject {
         return SolanaKitAccount(account)
     }
     
+    private func fetchTransactionsFromCache() throws -> [AccountTransfer] {
+        let transfersData = try cache.getAllByType(.transaction_history)
+        var transfers = [AccountTransfer]()
+        for singleData in transfersData {
+            if let single_transfer_history = try solscanClient.parse(singleData, as: [AccountTransfer].self) {
+                transfers.append(contentsOf: single_transfer_history)
+            }
+        }
+        transfers.sort(by: { $0.block_time > $1.block_time })
+        return transfers
+    }
+    
     private func fetchTransactionsFromNetwork(
         limit: Int = 10,
-        before: String? = nil
-    ) async throws -> [SolanaKitTransaction] {
-        return [SolanaKitTransaction]()
+        from: String? = nil,
+        to: String? = nil
+    ) async throws -> [AccountTransfer] {
+        guard let account = self.currentAccount else { throw SolanaKitError.notConfigured }
+        var pageNum = 1
+        var returnTransfers : [AccountTransfer] = []
+        let latestTxHash : String
+        
+        while true {
+            let key = "\(account).\(limit).\(from ?? "").\(to ?? "")"
+            if let transfersData = try cache.get(key), !transfersData.isEmpty {
+                if let transfers = try solscanClient.parse(transfersData, as: [AccountTransfer].self) {
+                    for transfer in transfers {
+                        returnTransfers.append(transfer)
+                    }
+                    if transfers.count < limit {
+                        break
+                    }
+                }
+            } else {
+                let transfersData = try await solscanClient.getAccountTransfer(
+                    address: account,
+                    from: from,
+                    to: to,
+                    page: pageNum,
+                    page_size: limit
+                )
+                try cache.set(transfersData, forKey: key, type: .transaction_history)
+                if let transfers = try solscanClient.parse(transfersData, as: [AccountTransfer].self){
+                    for transfer in transfers {
+                        returnTransfers.append(transfer)
+                    }
+                    if transfers.count < limit {
+                        break
+                    }
+                }
+            }
+            pageNum += 1
+        }
+        return returnTransfers
     }
     
     private func setupAutoRefresh() {}

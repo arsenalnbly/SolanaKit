@@ -13,7 +13,7 @@ public final class SolanaHttpsClient {
     
     private var baseURL: URL
     
-    public init(baseURL: String = "https://api.devnet.solana.com", apiKey: String? = nil) {
+    public init(baseURL: String = "https://api.mainnet-beta.solana.com", apiKey: String? = nil) {
         self.baseURL = URL(string: baseURL)!
     }
     
@@ -24,7 +24,7 @@ public final class SolanaHttpsClient {
     private func fetch<T: Decodable>(_ request: URLRequest, as type: T.Type) async throws -> T {
         
         let (data, response) = try await URLSession.shared.data(for: request)
-        
+//        print(String(data: data, encoding: .utf8))
         guard let httpResponse = response as? HTTPURLResponse,
               (200..<300).contains(httpResponse.statusCode) else {
             throw URLError(.badServerResponse)
@@ -84,8 +84,8 @@ public final class SolanaHttpsClient {
     func getTransactions(
         forAddress: String,
         limit: Int = 10,
-        before: String?,
-        until: String?
+        before: String? = nil,
+        until: String? = nil
     ) async throws -> SolanaRPCResponse<[SolanaSignature]> {
         var options: [String: Any] = [
             "limit": limit
