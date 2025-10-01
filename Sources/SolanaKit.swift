@@ -278,6 +278,7 @@ public final class SolanaKit: ObservableObject {
         var returnTransfers : [AccountTransfer] = []
         let latestTxHash : String
         
+        print("Start fetching transactions...")
         while true {
             let key = "\(account).\(limit)"
             if let transfersData = try cache.get(key), !transfersData.isEmpty {
@@ -307,6 +308,7 @@ public final class SolanaKit: ObservableObject {
             }
             pageNum += 1
         }
+        print("Fetching finished")
         return returnTransfers
     }
     
