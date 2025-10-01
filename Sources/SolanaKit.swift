@@ -168,12 +168,12 @@ public final class SolanaKit: ObservableObject {
         }
         
         let latest_tx = self.transactions.first?.trans_id
-        let latestTransactions = try await self.solanaClient.getTransactions(forAddress: account, until: to)
+        let latestTransactions = try await self.solanaClient.getTransactions(forAddress: account, until: latest_tx)
         
         switch latestTransactions {
         case .success(_, let result, _):
             if !result.isEmpty {
-                let newTransactions = try await fetchTransactionsFromNetwork(limit: limit)
+                let newTransactions = try await fetchTransactionsFromNetwork(limit: limit, until: latest_tx)
                 for transaction in newTransactions {
                     self.transactions.insert(transaction, at: 0)
                 }
@@ -271,10 +271,11 @@ public final class SolanaKit: ObservableObject {
     private func fetchTransactionsFromNetwork(
         limit: Int = 10,
         from: String? = nil,
-        to: String? = nil
+        until: String? = nil
     ) async throws -> [AccountTransfer] {
         guard let account = self.currentAccount else { throw SolanaKitError.notConfigured }
         var pageNum = 1
+        var finished = false
         var returnTransfers : [AccountTransfer] = []
         let latestTxHash : String
         
@@ -284,11 +285,13 @@ public final class SolanaKit: ObservableObject {
             if let transfersData = try cache.get(key), !transfersData.isEmpty {
                 if let transfers = try solscanClient.parse(transfersData, as: [AccountTransfer].self) {
                     for transfer in transfers {
+                        if let latest_tx = until {
+                            finished = transfer.trans_id == latest_tx
+                            if finished { break }
+                        }
                         returnTransfers.append(transfer)
                     }
-                    if transfers.count < limit {
-                        break
-                    }
+                    finished = transfers.count < limit
                 }
             } else {
                 let transfersData = try await solscanClient.getAccountTransfer(
@@ -299,14 +302,17 @@ public final class SolanaKit: ObservableObject {
                 try cache.set(transfersData, forKey: key, type: .transaction_history)
                 if let transfers = try solscanClient.parse(transfersData, as: [AccountTransfer].self){
                     for transfer in transfers {
+                        if let latest_tx = until {
+                            finished = transfer.trans_id == latest_tx
+                            if finished { break }
+                        }
                         returnTransfers.append(transfer)
                     }
-                    if transfers.count < limit {
-                        break
-                    }
+                    finished = transfers.count < limit
                 }
             }
             pageNum += 1
+            if finished { break }
         }
         print("Fetching finished")
         return returnTransfers
