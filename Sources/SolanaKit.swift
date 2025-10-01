@@ -153,7 +153,7 @@ public final class SolanaKit: ObservableObject {
         limit: Int = 10,
         before: String? = nil,
         forToken: String? = nil,
-        sort_order: SolscanHttpsClient.sortOrder
+        sort_order: SolscanHttpsClient.sortOrder = .desc
     ) async throws -> [AccountTransfer] {
         if let token = forToken {
             return self.transactions.filter({ $0.token_address == token })
