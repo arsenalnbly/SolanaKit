@@ -152,10 +152,17 @@ public final class SolanaKit: ObservableObject {
     public func getTransactionHistory(
         limit: Int = 10,
         before: String? = nil,
-        forToken: String? = nil
+        forToken: String? = nil,
+        sort_order: SolscanHttpsClient.sortOrder
     ) async throws -> [AccountTransfer] {
         if let token = forToken {
             return self.transactions.filter({ $0.token_address == token })
+        }
+        switch sort_order {
+        case .asc:
+            return self.transactions.sorted() { $0.block_time < $1.block_time }
+        case .desc:
+            return self.transactions.sorted() { $0.block_time > $1.block_time }
         }
         return self.transactions
     }
