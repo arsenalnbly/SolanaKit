@@ -19,7 +19,7 @@ public enum EntryType: String {
     case transaction_history
 }
 
-public enum TextCacheEvictionPolicy {
+public enum TextCacheEvictionPolicy : Sendable {
     case none
     case lru
 }
@@ -40,7 +40,7 @@ public struct TextCacheEntryInfo {
 }
 
 /// A small text key/value cache persisted in SQLite with TTL + pruning.
-public final class TextCacheStore {
+public final class TextCacheStore: @unchecked Sendable {
 
     // MARK: Configuration
     public let name: String
@@ -83,6 +83,24 @@ public final class TextCacheStore {
             try configurePragmas()
             try createSchemaIfNeeded()
         }
+    }
+    
+    public static func createAsync(
+        name: String,
+        directory: URL,
+        capacityBytes: Int64 = 50 * 1024 * 1024,
+        defaultTTL: TimeInterval? = nil,
+        evictionPolicy: TextCacheEvictionPolicy = .lru
+    ) async throws -> TextCacheStore {
+        return try await Task.detached {
+            return try TextCacheStore(
+                name: name,
+                directory: directory,
+                capacityBytes: capacityBytes,
+                defaultTTL: defaultTTL,
+                evictionPolicy: evictionPolicy
+            )
+        }.value
     }
 
     deinit {

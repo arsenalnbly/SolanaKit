@@ -74,7 +74,7 @@ public final class SolanaKit: ObservableObject {
     
     nonisolated private let solanaClient: SolanaHttpsClient
     nonisolated private let solscanClient: SolscanHttpsClient
-    private let cache: TextCacheStore
+    nonisolated private let cache: TextCacheStore
 //    private var config: SolanaKitConfig
 //    private var autoRefreshTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
@@ -91,7 +91,7 @@ public final class SolanaKit: ObservableObject {
         let cachesPath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         let cacheDirectory = cachesPath.appendingPathComponent("SolscanCache", isDirectory: true)
         do {
-            self.cache = try TextCacheStore(
+            self.cache = try await TextCacheStore.createAsync(
                 name: "solscan_cache",
                 directory: cacheDirectory,
             )
@@ -105,8 +105,8 @@ public final class SolanaKit: ObservableObject {
         if let account = account {
             self.currentAccount = account
             do {
-//                try await self.refreshBalance()
-//                try await self.refreshTransactionHistory()
+                try await self.refreshBalance()
+                try await self.refreshTransactionHistory()
             } catch {
                 throw SolanaKitError.networkError(error)
             }
