@@ -6,15 +6,15 @@
 //
 
 public struct AccountTransfer: Codable {
-      let block_id: Int
-      let trans_id: String
-      let block_time: Int
-      let time: String
-      let activity_type: String
-      let from_address: String
-      let to_address: String
-      let token_address: String
-      let token_decimals: Int
-      let amount: Int64
-      let flow: String
+      public let block_id: Int
+      public let trans_id: String
+      public let block_time: Int
+      public let time: String
+      public let activity_type: String
+      public let from_address: String
+      public let to_address: String
+      public let token_address: String
+      public let token_decimals: Int
+      public let amount: Int64
+      public let flow: String
   }

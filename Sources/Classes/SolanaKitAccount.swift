@@ -6,11 +6,11 @@
 //
 
 public struct SolanaKitAccount: Sendable {
-    let account: String
+    public let account: String
     public var lamports: UInt64
-    let executable: Bool
-    let owner_program: String
-    let rent_epoch: UInt64
+    public let executable: Bool
+    public let owner_program: String
+    public let rent_epoch: UInt64
     
     public init(_ SolscanAcc: AccountDetail) {
         self.account = SolscanAcc.account
