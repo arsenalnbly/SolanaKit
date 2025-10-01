@@ -155,16 +155,18 @@ public final class SolanaKit: ObservableObject {
         forToken: String? = nil,
         sort_order: SolscanHttpsClient.sortOrder = .desc
     ) async throws -> [AccountTransfer] {
-        if let token = forToken {
-            return self.transactions.filter({ $0.token_address == token })
-        }
+        let sorted: [AccountTransfer]
         switch sort_order {
         case .asc:
-            return self.transactions.sorted() { $0.block_time < $1.block_time }
+            sorted = self.transactions.sorted() { $0.block_time < $1.block_time }
         case .desc:
-            return self.transactions.sorted() { $0.block_time > $1.block_time }
+            sorted = self.transactions.sorted() { $0.block_time > $1.block_time }
         }
-        return self.transactions
+        if let token = forToken {
+            return sorted.filter({ $0.token_address == token })
+        }
+        
+        return sorted
     }
     
     //TODO: Change to getAccountTransfer
