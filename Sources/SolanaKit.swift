@@ -90,18 +90,26 @@ public final class SolanaKit: ObservableObject {
     ) async throws {
         let cachesPath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         let cacheDirectory = cachesPath.appendingPathComponent("SolscanCache", isDirectory: true)
-        self.cache = try TextCacheStore(
-            name: "solscan_cache",
-            directory: cacheDirectory,
-        )
+        do {
+            self.cache = try TextCacheStore(
+                name: "solscan_cache",
+                directory: cacheDirectory,
+            )
+        } catch {
+            throw SolanaKitError.cacheError(error)
+        }
         
         self.solanaClient = SolanaHttpsClient(baseURL: network.rpcURL)
         self.solscanClient = SolscanHttpsClient(baseURL: solscanAPI, apiKey: solscanAPIKey)
         
         if let account = account {
             self.currentAccount = account
-            try await self.refreshBalance()
-            try await self.refreshTransactionHistory()
+            do {
+                try await self.refreshBalance()
+                try await self.refreshTransactionHistory()
+            } catch {
+                throw SolanaKitError.networkError(error)
+            }
         }
         
     }
