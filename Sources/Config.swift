@@ -8,7 +8,7 @@
 import Foundation
 
 public struct Config {
-    static let solscanApiKey: String = {
+    public static let solscanApiKey: String = {
         guard let key = ProcessInfo.processInfo.environment["SOLSCAN_API_KEY"] else {
             fatalError("SOLSCAN_API_KEY environment variable not set")
         }

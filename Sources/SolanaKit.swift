@@ -85,7 +85,8 @@ public final class SolanaKit: ObservableObject {
         network: SolanaNetwork = .mainnet,
         solscanAPI: String = "https://pro-api.solscan.io/v2.0/",
 //        config: SolanaKitConfig = SolanaKitConfig()
-        account: String? = nil
+        account: String? = nil,
+        solscanAPIKey: String = Config.solscanApiKey
     ) async throws {
         let cachesPath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         let cacheDirectory = cachesPath.appendingPathComponent("SolscanCache", isDirectory: true)
@@ -95,7 +96,7 @@ public final class SolanaKit: ObservableObject {
         )
         
         self.solanaClient = SolanaHttpsClient(baseURL: network.rpcURL)
-        self.solscanClient = SolscanHttpsClient(baseURL: solscanAPI, apiKey: Config.solscanApiKey)
+        self.solscanClient = SolscanHttpsClient(baseURL: solscanAPI, apiKey: solscanAPIKey)
         
         if let account = account {
             self.currentAccount = account
