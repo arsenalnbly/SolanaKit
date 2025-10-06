@@ -13,8 +13,8 @@ public struct GetTokenAccountResult : Codable {
 }
 
 public struct TokenAccountInfo: Codable, Sendable {
-    let pubkey: String
-    let account: SolanaAccInfo
+    public let pubkey: String
+    public let account: SolanaAccInfo
 }
 
 //struct TokenAccountInfo: Codable {

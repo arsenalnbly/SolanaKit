@@ -97,16 +97,16 @@ extension SolanaAccInfo {
   }
 
 public struct TokenData : Codable, Sendable {
-    let isNative: Bool
-    let mint: String
-    let owner: String
-    let state: String
-    let tokenBalance: String
-    let decimals: UInt64
-    let uiTokenBalanceString: String
-    let space: UInt64
-    let program: String
-    let type: String
+    public let isNative: Bool
+    public let mint: String
+    public let owner: String
+    public let state: String
+    public let tokenBalance: String
+    public let decimals: UInt64
+    public let uiTokenBalanceString: String
+    public let space: UInt64
+    public let program: String
+    public let type: String
 
     enum CodingKeys: String, CodingKey {
         case parsed, program, space
