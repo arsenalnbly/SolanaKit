@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import Base58Swift
+
 
 
 @available(macOS 10.15.0, *)
@@ -36,6 +38,60 @@ public final class SolanaHttpsClient {
     
     // MARK: - Endpoints
     
+    func broadcastTransaction(signed_tx: Data) async throws -> Bool {
+        let txBase58 = Base58.base58Encode([UInt8](signed_tx))
+        let request = try SolanaRPCRequest(
+            method: "sendTransaction",
+            params: [AnyCodable(txBase58)]
+        ).urlRequest(baseURL)
+        let response = try await fetch(request, as: SolanaRPCResponse<String>.self)
+        switch response {
+        case .success(jsonrpc: _, result: let sig, id: _):
+            if !Base58.base58Decode(sig)!.contains(signed_tx) {
+                return false
+            }
+            return true
+        case .error(jsonrpc: _, error: let error, id: _):
+            throw error
+        }
+    }
+    
+    func getRecentBlockhash() async throws -> String {
+        let request = try SolanaRPCRequest(
+            method: "getLatestBlockhash",
+        ).urlRequest(baseURL)
+        
+        let response = try await fetch(request, as: SolanaRPCResponse<RPCBlockhashResult>.self)
+        switch response {
+        case .success(jsonrpc: _, result: let result, id: _):
+            return result.value.blockhash
+        case .error(jsonrpc: _, error: let error, id: _):
+            throw error
+        }
+    }
+    
+    func getTokenAddressForOwner(
+        mint: String,
+        owner: String
+    ) async throws -> [TokenAccountInfo] {
+        let request = try SolanaRPCRequest(
+            method: "getTokenAccountsByOwner",
+            params: [
+                AnyCodable(owner),
+                AnyCodable(["mint" : mint]),
+                AnyCodable(["encoding" : "jsonParsed"])
+            ]
+        ).urlRequest(baseURL)
+        
+        let response = try await fetch(request, as: SolanaRPCResponse<GetTokenAccountResult>.self)
+        switch response {
+        case .success(jsonrpc: _, result: let result, id: _):
+            return result.value
+        case .error(jsonrpc: _, error: let error, id: _):
+            throw error
+        }
+    }
+    
     func getAccountDetails(
         address: String
     ) async throws -> SolanaKitAccount? {
@@ -43,7 +99,8 @@ public final class SolanaHttpsClient {
         let request = try SolanaRPCRequest(
             method: "getAccountInfo",
             params: [
-                AnyCodable(address)
+                AnyCodable(address),
+                AnyCodable(["encoding" : "jsonParsed"])
             ]
         ).urlRequest(baseURL)
         
