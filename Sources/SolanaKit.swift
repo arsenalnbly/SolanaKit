@@ -82,11 +82,11 @@ public final class SolanaKit: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Initialization
-    
+
+    /// Async initialization - waits for all data to be fetched
     public init(
         network: SolanaNetwork = .mainnet,
         solscanAPI: String = "https://pro-api.solscan.io/v2.0/",
-//        config: SolanaKitConfig = SolanaKitConfig()
         account: String? = nil,
         solscanAPIKey: String = Config.solscanApiKey
     ) async throws {
@@ -95,15 +95,15 @@ public final class SolanaKit: ObservableObject {
         do {
             self.cache = try await TextCacheStore.createAsync(
                 name: "solscan_cache",
-                directory: cacheDirectory,
+                directory: cacheDirectory
             )
         } catch {
             throw SolanaKitError.cacheError(error)
         }
-        
+
         self.solanaClient = SolanaHttpsClient(baseURL: network.rpcURL)
         self.solscanClient = SolscanHttpsClient(baseURL: solscanAPI, apiKey: solscanAPIKey)
-        
+
         if let account = account {
             self.currentAccount = account
             do {
@@ -114,8 +114,65 @@ public final class SolanaKit: ObservableObject {
                 throw SolanaKitError.networkError(error)
             }
         }
-        
     }
+
+    /// Synchronous initialization - returns immediately, fetches data in background
+    public convenience init(
+        network: SolanaNetwork = .mainnet,
+        solscanAPI: String = "https://pro-api.solscan.io/v2.0/",
+        account: String? = nil,
+        solscanAPIKey: String = Config.solscanApiKey,
+        autoLoad: Bool = true
+    ) throws {
+        let cachesPath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let cacheDirectory = cachesPath.appendingPathComponent("SolscanCache", isDirectory: true)
+
+        // Initialize cache synchronously
+        let cache = try TextCacheStore(
+            name: "solscan_cache",
+            directory: cacheDirectory
+        )
+
+        // Call designated initializer (private)
+        self.init(
+            cache: cache,
+            network: network,
+            solscanAPI: solscanAPI,
+            solscanAPIKey: solscanAPIKey
+        )
+
+        if let account = account {
+            self.currentAccount = account
+
+            if autoLoad {
+                // Load data in background
+                Task { @MainActor in
+                    self.isLoading = true
+                    do {
+                        try await self.refreshBalance()
+                        try await self.refreshTransactionHistory()
+                        try await self.syncSplTokens()
+                    } catch {
+                        self.error = SolanaKitError.networkError(error)
+                    }
+                    self.isLoading = false
+                }
+            }
+        }
+    }
+
+    /// Private designated initializer for sync init
+    private init(
+        cache: TextCacheStore,
+        network: SolanaNetwork,
+        solscanAPI: String,
+        solscanAPIKey: String
+    ) {
+        self.cache = cache
+        self.solanaClient = SolanaHttpsClient(baseURL: network.rpcURL)
+        self.solscanClient = SolscanHttpsClient(baseURL: solscanAPI, apiKey: solscanAPIKey)
+    }
+
     deinit { try? self.cache.close() }
     
     // MARK: - Configuration
