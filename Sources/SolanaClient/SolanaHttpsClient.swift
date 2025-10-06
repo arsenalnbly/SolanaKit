@@ -71,6 +71,28 @@ public final class SolanaHttpsClient {
     }
     
     func getTokenAddressForOwner(
+        programId: String,
+        owner: String
+    ) async throws -> [TokenAccountInfo] {
+        let request = try SolanaRPCRequest(
+            method: "getTokenAccountsByOwner",
+            params: [
+                AnyCodable(owner),
+                AnyCodable(["programId" : programId]),
+                AnyCodable(["encoding" : "jsonParsed"])
+            ]
+        ).urlRequest(baseURL)
+        
+        let response = try await fetch(request, as: SolanaRPCResponse<GetTokenAccountResult>.self)
+        switch response {
+        case .success(jsonrpc: _, result: let result, id: _):
+            return result.value
+        case .error(jsonrpc: _, error: let error, id: _):
+            throw error
+        }
+    }
+    
+    func getTokenAddressForOwner(
         mint: String,
         owner: String
     ) async throws -> [TokenAccountInfo] {
