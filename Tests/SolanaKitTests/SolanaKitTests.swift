@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import Base58Swift
 @testable import SolanaKit
 
 @Test func testAll() async throws {
@@ -204,12 +205,29 @@ import Foundation
     }
 }
 
+func getLatestTx(account: String, network: SolanaNetwork = .mainnet) async throws -> String? {
+    let client = SolanaHttpsClient()
+    client.switchNetworkTo(network)
+    let txs = try await client.getTransactions(forAddress: account, limit: 1)
+    switch txs {
+    case .success(let jsonrpc, let result, let id):
+        return result.first?.signature
+    case .error(let jsonrpc, let error, let id):
+        #expect(Bool(false))
+        return nil
+    }
+}
+
 @Test func testRefreshTransactionHistory() async throws {
+    
     let address = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
+    let latest_expected_tx = try await getLatestTx(account: address)
+    
     let kit = try await SolanaKit(account: address)
 //    try await kit.refreshTransactionHistory()
+//    try await kit.refreshTransactionHistory()
     let latest_tx = kit.transactions.first
-    #expect(latest_tx?.txHash == "3QDm2RxRPLjQ5waPACHntoCwgCbvTf2zeaQgMRLhNwE7yPpfygUwWPaNjaUnS3T49nAqUwVct7pwE5B3uJPdKcTo")
+    #expect(latest_tx?.trans_id == latest_expected_tx)
 }
 
 @Test func testClearCache() async throws {
@@ -235,4 +253,85 @@ import Foundation
         }
     }
     #expect(transactions.count == 10)
+}
+
+@Test func testGetAllByType() async throws {
+    let cachesPath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+    let cacheDirectory = cachesPath.appendingPathComponent("SolscanCache", isDirectory: true)
+    let cache = try TextCacheStore(
+        name: "solscan_cache",
+        directory: cacheDirectory,
+    )
+    let solscanClient = SolscanHttpsClient()
+    let transactionsData = try cache.getAllByType(.transaction_details)
+    #expect(transactionsData.count >= 10)
+    var transactions : [TransactionDetail] = []
+    for transaction in transactionsData {
+        if let transactionObj = try? solscanClient.parse(transaction, as: TransactionDetail.self) {
+            transactions.append(transactionObj)
+        }
+    }
+    #expect(transactions.count == transactionsData.count)
+}
+
+@Test func testGetRecentBlockhash() async throws {
+    let client = SolanaHttpsClient()
+    client.switchNetworkTo(.mainnet)
+    let hash = try await client.getRecentBlockhash()
+    #expect(!hash.isEmpty)
+}
+
+@Test func testGetUnsignedSolTx() async throws {
+    let kit = try await SolanaKit(network: .mainnet)
+    let from = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
+    let to = "5SRDAEWJ99aaoTeRyRZSe7zxRicciPd8Np4hb65ZaiKQ"
+    let lamports = SolanaKit.solToLamports(0.001)
+    
+    let unsigned_tx = try await kit.getUnsignedSolTransaction(
+        from: from, to: to, lamports: lamports
+    )
+    print(unsigned_tx.map { String(format: "%02x", $0)}.joined())
+}
+
+@Test func testGetUnsignedSplTx() async throws {
+    let kit = try await SolanaKit(network: .mainnet)
+    let from = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
+    let to = "5SRDAEWJ99aaoTeRyRZSe7zxRicciPd8Np4hb65ZaiKQ"
+    let mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    let amount: UInt64 = 100
+    let decimals: UInt8 = 6
+    
+    let unsigned_tx = try await kit.getUnsignedSplTransaction(
+        mintAddress: mint,
+        from: from,
+        destinationAddress: to,
+        amount: amount,
+        decimals: decimals
+    )
+    print(unsigned_tx.map { String(format: "%02x", $0)}.joined())
+}
+
+@Test func testGetTokenAddress() async throws {
+    let client = SolanaHttpsClient()
+    let mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    let owner = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
+    let expected_token_address = "DT4QqJi5q5Znw2wwSfkg4VHsdtZ3H3FzHicZBuTxvpym"
+    
+    let tokenAccount = try await client.getTokenAddressForOwner(mint: mint, owner: owner).first!
+    let expectedTokenAccount = try await client.getAccountDetails(address: expected_token_address)
+    
+    #expect(tokenAccount.pubkey == expectedTokenAccount?.account)
+
+}
+
+@Test func testGetUnregisteredTokenAddress() async throws {
+    let client = SolanaHttpsClient()
+    let mint = "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv"
+    let owner = "5SRDAEWJ99aaoTeRyRZSe7zxRicciPd8Np4hb65ZaiKQ"
+    
+    let tokenAccounts = try await client.getTokenAddressForOwner(mint: mint, owner: owner)
+    
+    print(tokenAccounts)
+    #expect(tokenAccounts.isEmpty)
+    
 }
