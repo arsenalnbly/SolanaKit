@@ -62,6 +62,7 @@ public final class SolanaKit: ObservableObject {
     // MARK: - Published Properties
     
     @Published public private(set) var balance: SolanaKitAccount?
+    @Published public private(set) var splTokens: [TokenAccountInfo]?
     @Published public private(set) var transactions: [AccountTransfer] = []
     @Published public private(set) var connectionStatus: ConnectionStatus = .disconnected
     @Published public private(set) var lastSyncTime: Double?
@@ -108,6 +109,7 @@ public final class SolanaKit: ObservableObject {
             do {
                 try await self.refreshBalance()
                 try await self.refreshTransactionHistory()
+                try await self.syncSplTokens()
             } catch {
                 throw SolanaKitError.networkError(error)
             }
@@ -233,6 +235,12 @@ public final class SolanaKit: ObservableObject {
     @MainActor
     public func clearCache() throws {
         try self.cache.removeAll()
+    }
+    
+    public func syncSplTokens() async throws {
+        guard let account = currentAccount else { throw SolanaKitError.notConfigured }
+        let splTokens = try await solanaClient.getTokenAddressForOwner(programId: PublicKey.tokenProgramId.base58EncodedString, owner: account)
+        self.splTokens = splTokens
     }
     
     public func getUnsignedSolTransaction(
