@@ -24,7 +24,7 @@ public struct SolanaKitAccount: Sendable {
         self.account = address
         self.lamports = SolanaAcc.lamports
         self.executable = SolanaAcc.executable
-        self.owner_program = SolanaAcc.owner
+        self.owner_program = SolanaAcc.owner_program
         self.rent_epoch = SolanaAcc.rentEpoch
     }
 }
