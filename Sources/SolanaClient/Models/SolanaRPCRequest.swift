@@ -11,7 +11,7 @@ struct SolanaRPCRequest: Codable {
     let jsonrpc: String
     let id: Int
     let method: String
-    let params: [AnyCodable]
+    let params: [AnyCodable]?
     
     enum CodingKeys: String, CodingKey {
         case jsonrpc, id, method, params
@@ -22,10 +22,12 @@ struct SolanaRPCRequest: Codable {
         try container.encode(jsonrpc, forKey: .jsonrpc)
         try container.encode(id, forKey: .id)
         try container.encode(method, forKey: .method)
-        try container.encode(params, forKey: .params)
+        if let params = self.params, !params.isEmpty {
+            try container.encode(params, forKey: .params)
+        }
     }
     
-    init(jsonrpc: String = "2.0", id: Int = 1, method: String, params: [AnyCodable]) {
+    init(jsonrpc: String = "2.0", id: Int = 1, method: String, params: [AnyCodable]? = nil) {
         self.jsonrpc = jsonrpc
         self.id = id
         self.method = method

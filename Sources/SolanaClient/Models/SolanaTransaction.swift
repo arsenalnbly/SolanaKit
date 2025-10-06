@@ -11,7 +11,7 @@ public struct GetTransactionResult: Codable {
     let blockTime: Int64
     let meta: TransactionMeta
     let slot: Int64
-    let transaction: Transaction
+    let transaction: RPCTransactionStruct
     let version: TransactionVersion?
     
     enum TransactionVersion: Codable {
@@ -86,7 +86,7 @@ struct TransactionStatus: Codable {
     let Ok: String?
 }
 
-struct Transaction: Codable {
+struct RPCTransactionStruct: Codable {
     let message: Message
     let signatures: [String]
 }
