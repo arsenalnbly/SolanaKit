@@ -15,11 +15,21 @@ let package = Package(
             name: "SolanaKit",
             targets: ["SolanaKit"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/keefertaylor/Base58Swift.git", from: "2.1.0"),
+        .package(
+            url: "https://github.com/arsenalnbly/Solana.Swift.git", branch: "master"),
+    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "SolanaKit"),
+            name: "SolanaKit",
+            dependencies: [
+                .product(name: "Base58Swift", package: "Base58Swift"),
+                .product(name: "Solana", package: "solana.swift")
+            ]
+        ),
         .testTarget(
             name: "SolanaKitTests",
             dependencies: ["SolanaKit"]
