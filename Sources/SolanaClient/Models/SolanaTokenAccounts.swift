@@ -12,7 +12,7 @@ public struct GetTokenAccountResult : Codable {
     let value: [TokenAccountInfo]
 }
 
-public struct TokenAccountInfo: Codable {
+public struct TokenAccountInfo: Codable, Sendable {
     let pubkey: String
     let account: SolanaAccInfo
 }

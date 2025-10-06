@@ -5,7 +5,7 @@
 //  Created by arsenal on 11.09.25.
 //
 
-public enum AccountData: Codable {
+public enum AccountData: Codable, Sendable {
     case array([String])
     case tokenData(TokenData)
 
@@ -38,7 +38,7 @@ public enum AccountData: Codable {
     }
 }
 
-public struct SolanaAccInfo: Codable {
+public struct SolanaAccInfo: Codable, Sendable {
     public let data: AccountData
     public let executable: Bool
     public let lamports: UInt64
@@ -96,7 +96,7 @@ extension SolanaAccInfo {
       }
   }
 
-public struct TokenData : Codable {
+public struct TokenData : Codable, Sendable {
     let isNative: Bool
     let mint: String
     let owner: String
