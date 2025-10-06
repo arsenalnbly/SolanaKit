@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import Solana
 
 // MARK: - Configuration
 
@@ -232,6 +233,114 @@ public final class SolanaKit: ObservableObject {
     @MainActor
     public func clearCache() throws {
         try self.cache.removeAll()
+    }
+    
+    public func getUnsignedSolTransaction(
+        from: String,
+        to: String,
+        lamports: UInt64
+    ) async throws -> Data {
+        let recentBlockhash = try await solanaClient.getRecentBlockhash()
+        
+        guard let senderPublicKey = PublicKey(string: from) else { throw SolanaKitError.invalidAddress }
+        guard let recipientPublicKey = PublicKey(string: to) else { throw SolanaKitError.invalidAddress }
+        
+        let instruction = SystemProgram.transferInstruction(
+            from: senderPublicKey,
+            to: recipientPublicKey,
+            lamports: lamports
+        )
+        
+        var transaction = Transaction(
+            feePayer: senderPublicKey,
+            instructions: [instruction],
+            recentBlockhash: recentBlockhash
+        )
+        let serializedTx = transaction.serialize(
+            requiredAllSignatures: false,
+            verifySignatures: false
+        )
+        switch serializedTx {
+        case .success(let success):
+            return success
+        case .failure(let failure):
+            throw failure
+        }
+    }
+    
+    public func getUnsignedSplTransaction(
+        mintAddress: String,
+        from: String,
+        destinationAddress: String,
+        amount: UInt64,
+        decimals: UInt8 = 9,
+        allowUnfundedRecipient: Bool = true
+    ) async throws -> Data {
+        let recentBlockhash = try await solanaClient.getRecentBlockhash()
+        
+        guard let mint = PublicKey(string: mintAddress) else { throw SolanaKitError.invalidAddress }
+        guard let senderOwner = PublicKey(string: from) else { throw SolanaKitError.invalidAddress }
+        guard let receiverOwner = PublicKey(string: destinationAddress) else { throw SolanaKitError.invalidAddress }
+        
+        let senderTokenAccounts = try await solanaClient.getTokenAddressForOwner(mint: mintAddress, owner: from).map { return $0.pubkey }
+        var receiverTokenAccounts = try await solanaClient.getTokenAddressForOwner(mint: mintAddress, owner: destinationAddress).map { return $0.pubkey }
+        
+        var instructions = [TransactionInstruction]()
+        if receiverTokenAccounts.isEmpty {
+            guard case let .success(associatedAddress) = PublicKey.associatedTokenAddress(
+                walletAddress: receiverOwner,
+                tokenMintAddress: mint
+            ) else {
+                throw SolanaKitError.invalidAddress
+            }
+            instructions.append(
+                AssociatedTokenProgram.createAssociatedTokenAccountInstruction(
+                    mint: mint,
+                    associatedAccount: associatedAddress,
+                    owner: receiverOwner,
+                    payer: senderOwner
+                )
+            )
+            receiverTokenAccounts.append(associatedAddress.base58EncodedString)
+        }
+        guard let senderAccount = PublicKey(string: senderTokenAccounts.first!) else {
+            throw SolanaKitError.invalidAddress
+        }
+        guard let receiverAccount = PublicKey(string: receiverTokenAccounts.first!) else {
+            throw SolanaKitError.invalidAddress
+        }
+        
+        instructions.append(
+            TokenProgram.transferCheckedInstruction(
+                programId: .tokenProgramId,
+                source: senderAccount,
+                mint: mint,
+                destination: receiverAccount,
+                owner: senderOwner,
+                multiSigners: [],
+                amount: amount,
+                decimals: decimals
+            )
+        )
+        var transaction = Transaction(
+            feePayer: senderOwner,
+            instructions: instructions,
+            recentBlockhash: recentBlockhash
+        )
+        let serializedTx = transaction.serialize(
+            requiredAllSignatures: false,
+            verifySignatures: false
+        )
+        switch serializedTx {
+        case .success(let success):
+            return success
+        case .failure(let failure):
+            throw failure
+        }
+    }
+    
+    public func broadcastTransaction(signed_tx: Data) async throws -> Bool{
+        return try await self.solanaClient.broadcastTransaction(signed_tx: signed_tx)
     }
     
     public func setCacheTimeout(_ timeout: TimeInterval) {}
