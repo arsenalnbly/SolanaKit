@@ -47,7 +47,7 @@ public final class SolanaHttpsClient {
         let response = try await fetch(request, as: SolanaRPCResponse<String>.self)
         switch response {
         case .success(jsonrpc: _, result: let sig, id: _):
-            if !Base58.base58Decode(sig)!.contains(signed_tx) {
+            if !Base58.base58Decode(sig)!.containsSubarray([UInt8](signed_tx)) {
                 return false
             }
             return true
@@ -190,4 +190,15 @@ public final class SolanaHttpsClient {
     }
     
     
+}
+
+extension Array where Element: Equatable {
+    func containsSubarray(_ subarray: [Element]) -> Bool {
+        guard !subarray.isEmpty else { return true }
+        guard subarray.count <= self.count else { return false }
+        
+        return (0...(self.count - subarray.count)).contains { i in
+            self[i...].starts(with: subarray)
+        }
+    }
 }
