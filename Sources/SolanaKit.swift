@@ -57,7 +57,7 @@ public enum SolanaKitError: Error {
 // MARK: - Main SolanaKit Class
 
 @available(macOS 10.15.0, *)
-public final class SolanaKit: ObservableObject {
+public final class Kit: ObservableObject {
     
     // MARK: - Published Properties
     
