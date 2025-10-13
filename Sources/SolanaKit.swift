@@ -69,6 +69,7 @@ public final class SolanaKit: ObservableObject {
     @Published public private(set) var isLoading: Bool = false
     @Published public private(set) var isBalanceLoading: Bool = false
     @Published public private(set) var isTransactionsLoading: Bool = false
+    @Published public private(set) var syncState: SyncState = .syncing
     @Published public private(set) var error: SolanaKitError?
     @Published public private(set) var currentAccount: String?
     
@@ -107,9 +108,7 @@ public final class SolanaKit: ObservableObject {
         if let account = account {
             self.currentAccount = account
             do {
-                try await self.refreshBalance()
-                try await self.refreshTransactionHistory()
-                try await self.syncSplTokens()
+                try await self.loadData()
             } catch {
                 throw SolanaKitError.networkError(error)
             }
@@ -145,6 +144,8 @@ public final class SolanaKit: ObservableObject {
         
         isLoading = true
         defer { isLoading = false }
+        self.syncState = .syncing
+        defer { self.syncState = .synced }
         
         try await refreshBalance()
         try await refreshTransactionHistory()
