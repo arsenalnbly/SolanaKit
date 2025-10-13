@@ -89,7 +89,7 @@ public final class Kit: ObservableObject {
         network: SolanaNetwork = .mainnet,
         solscanAPI: String = "https://pro-api.solscan.io/v2.0/",
         account: String? = nil,
-        solscanAPIKey: String = Config.solscanApiKey
+        solscanAPIKey: String
     ) async throws {
         let cachesPath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         let cacheDirectory = cachesPath.appendingPathComponent("SolscanCache", isDirectory: true)
