@@ -50,7 +50,7 @@ public struct SolanaKitSyncResult {
 public enum SolanaKitError: Error {
     case notConfigured
     case networkError(Error)
-    case balanceSyncError
+    case syncError
     case invalidAddress
     case cacheError(Error)
 }
@@ -146,7 +146,13 @@ public final class Kit: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         self.syncState = .syncing
-        defer { self.syncState = .synced }
+        defer {
+            if self.balance == nil || self.splTokens == nil || ((self.splTokens?.isEmpty) != nil) {
+                self.syncState = .notSynced(SolanaKitError.syncError)
+            } else {
+                self.syncState = .synced
+            }
+        }
         
         try await refreshBalance()
         try await refreshTransactionHistory()
@@ -425,9 +431,9 @@ public final class Kit: ObservableObject {
     
     private func fetchBalanceFromNetwork() async throws -> SolanaKitAccount? {
         let accountData = try await solscanClient.getAccountDetails(address: currentAccount!)
-        guard !accountData.isEmpty else { syncState = .notSynced(SolanaKitError.balanceSyncError); throw SolanaKitError.balanceSyncError }
+        guard !accountData.isEmpty else { syncState = .notSynced(SolanaKitError.syncError); throw SolanaKitError.syncError }
         guard let account = try solscanClient.parse(accountData, as: AccountDetail.self) else {
-            syncState = .notSynced(SolanaKitError.balanceSyncError); throw SolanaKitError.balanceSyncError
+            syncState = .notSynced(SolanaKitError.syncError); throw SolanaKitError.syncError
         }
         try cache.set(accountData, forKey: currentAccount!, type: .account_details)
         return SolanaKitAccount(account)
