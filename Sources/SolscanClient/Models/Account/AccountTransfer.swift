@@ -49,7 +49,7 @@ public struct AccountTransfer: Codable, Hashable {
 }
 
 public enum ActivityType: Codable, Hashable {
-    case receive, send, mint, burn, createAccount, closeAccount, other
+    case receive, send, mint, burn, createAccount, closeAccount, other, fundAccount
     
     public init(from decoder: Decoder, flow: String) throws {
         let container = try decoder.container(keyedBy: AccountTransfer.CodingKeys.self)
@@ -63,6 +63,11 @@ public enum ActivityType: Codable, Hashable {
                 default: self = .other
                 }
             case "ACTIVITY_SPL_CREATE_ACCOUNT":
+                switch flow {
+                case "in": self = .fundAccount
+                case "out": self = .createAccount
+                default: self = .other
+                }
                 self = .createAccount
             case "ACTIVITY_SPL_MINT":
                 self = .mint
