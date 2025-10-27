@@ -223,7 +223,7 @@ public final class Kit: ObservableObject {
     ) async throws {
         guard let account = currentAccount else { throw SolanaKitError.notConfigured }
         if self.transactions.isEmpty {
-            self.transactions = try fetchTransactionsFromCache()
+            self.transactions = try fetchTransactionsFromCache(for: account)
         }
         
         let latest_tx = self.transactions.first?.trans_id
@@ -439,7 +439,7 @@ public final class Kit: ObservableObject {
         return SolanaKitAccount(account)
     }
     
-    private func fetchTransactionsFromCache() throws -> [AccountTransfer] {
+    private func fetchTransactionsFromCache(for account: String?) throws -> [AccountTransfer] {
         let transfersData = try cache.getAllByType(.transaction_history)
         var transfers = [AccountTransfer]()
         for singleData in transfersData {
@@ -448,7 +448,7 @@ public final class Kit: ObservableObject {
             }
         }
         transfers.sort(by: { $0.block_time > $1.block_time })
-        return transfers
+        return account == nil ? transfers : transfers.filter { transfer in transfer.from_address == account! || transfer.to_address == account! }
     }
     
     private func fetchTransactionsFromNetwork(
