@@ -63,7 +63,7 @@ public final class Kit: ObservableObject {
     // MARK: - Published Properties
     
     @Published public private(set) var balance: SolanaKitAccount?
-    @Published public private(set) var splTokens: [TokenAccountInfo]?
+    @Published public private(set) var splTokens: [TokenAccountInfo] = []
     @Published public private(set) var transactions: [AccountTransfer] = []
     @Published public private(set) var connectionStatus: ConnectionStatus = .disconnected
     @Published public private(set) var lastSyncTime: Double?
@@ -147,7 +147,7 @@ public final class Kit: ObservableObject {
         defer { isLoading = false }
         self.syncState = .syncing
         defer {
-            if self.balance == nil || self.splTokens == nil || ((self.splTokens?.isEmpty) != nil) {
+            if self.balance == nil {
                 self.syncState = .notSynced(SolanaKitError.syncError)
             } else {
                 self.syncState = .synced
@@ -156,7 +156,7 @@ public final class Kit: ObservableObject {
         
         try await refreshBalance()
         try await refreshTransactionHistory()
-        try await syncSplTokens()
+        try await syncSplTokens() 
     }
     
     deinit { try? self.cache.close() }
