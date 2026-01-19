@@ -152,8 +152,10 @@ public final class Kit: ObservableObject {
         defer {
             if self.splSyncState == .synced && self.balanceSyncState == .synced && self.txSyncState == .synced {
                 self.syncState = .synced
-            } else if self.splSyncState == .notSynced(_) || self.balanceSyncState == .synced || self.txSyncState == .synced {
-                
+            } else if self.splSyncState == .notSynced(SolanaKitError.syncError) || self.balanceSyncState == .notSynced(SolanaKitError.syncError) || self.txSyncState == .notSynced(SolanaKitError.syncError) {
+                self.syncState = .notSynced(SolanaKitError.syncError)
+            } else {
+                self.syncState = .syncing
             }
         }
         
