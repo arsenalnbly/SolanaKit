@@ -414,8 +414,10 @@ public final class Kit: ObservableObject {
         return String(format: "%.9f", sol)
     }
     
-    public func validateAddress(_ address: String) -> Bool {
-        return !address.isEmpty && address.count >= 32 && address.count <= 44
+    static public func validateAddress(_ address: String) throws {
+        guard let _ = PublicKey(string: address) else {
+            throw PublicKey.PublicKeyError.invalidPublicKey
+        }
     }
     
     // MARK: - Private Helper Methods
