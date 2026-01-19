@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 import Base58Swift
+import Solana
 @testable import SolanaKit
 
 @Test func testAll() async throws {
@@ -160,9 +161,10 @@ import Base58Swift
 @Test func testGetSolscanTransactionHistory() async throws {
     let address = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
     let client = try SolscanHttpsClient(apiKey: Config.solscanApiKey)
-    let transactions = try await client.getAccountTransactions(address: address)
-    
-    print(transactions.count)
+    let transactions = try await client.getAccountTransfer(address: address)
+    print(String(data: transactions, encoding: .utf8))
+    let parsedTransactions = try await client.parse(transactions, as: [AccountTransfer].self)
+    print(parsedTransactions!.count)
     
 }
 
@@ -223,16 +225,25 @@ func getLatestTx(account: String, network: SolanaNetwork = .mainnet) async throw
     let address = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
     let latest_expected_tx = try await getLatestTx(account: address)
     
-    let kit = try await SolanaKit(account: address)
+    let kit = try SolanaKit.Kit(account: address)
+    try await kit.loadData()
 //    try await kit.refreshTransactionHistory()
 //    try await kit.refreshTransactionHistory()
     let latest_tx = kit.transactions.first
     #expect(latest_tx?.trans_id == latest_expected_tx)
+    print(kit.syncState)
+    print("is balance nil: \(kit.balance == nil)")
+    print("is spltokens nil: \(kit.splTokens == nil)")
+    print("is spltokens empty: \(kit.splTokens.isEmpty)")
+    
+    for transaction in kit.transactions {
+        print("\(transaction.activity_type) \(transaction.flow)")
+    }
 }
 
 @Test func testClearCache() async throws {
     let address = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
-    let kit = try await SolanaKit(account: address)
+    let kit = try await SolanaKit.Kit(account: address)
     try await kit.clearCache()
 }
 
@@ -282,19 +293,32 @@ func getLatestTx(account: String, network: SolanaNetwork = .mainnet) async throw
 }
 
 @Test func testGetUnsignedSolTx() async throws {
-    let kit = try await SolanaKit(network: .mainnet)
+    let kit = try await SolanaKit.Kit(network: .mainnet)
     let from = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
     let to = "5SRDAEWJ99aaoTeRyRZSe7zxRicciPd8Np4hb65ZaiKQ"
-    let lamports = SolanaKit.solToLamports(0.001)
+    let lamports = SolanaKit.Kit.solToLamports(0.001)
     
     let unsigned_tx = try await kit.getUnsignedSolTransaction(
         from: from, to: to, lamports: lamports
     )
-    print(unsigned_tx.map { String(format: "%02x", $0)}.joined())
+    print(Base58.base58Encode([UInt8](unsigned_tx)))
+}
+
+@Test func testGetTxMessage() async throws {
+    let kit = try await SolanaKit.Kit(network: .mainnet)
+    let from = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
+    let to = "5SRDAEWJ99aaoTeRyRZSe7zxRicciPd8Np4hb65ZaiKQ"
+    let lamports = SolanaKit.Kit.solToLamports(0.001)
+    
+    let unsigned_tx = try await kit.getUnsignedSolTransaction(from: from, to: to, lamports: lamports)
+    let tx_msg = unsigned_tx.subdata(in: 65..<unsigned_tx.count).bytes
+    print(unsigned_tx.toHexString())
+    print(tx_msg.toHexString())
+    print(tx_msg.toBase64())
 }
 
 @Test func testGetUnsignedSplTx() async throws {
-    let kit = try await SolanaKit(network: .mainnet)
+    let kit = try await SolanaKit.Kit(network: .mainnet)
     let from = "H9ca27xrgMhJkCksnD3aZkvjiFE2fMuasFwyHNUNcYaj"
     let to = "5SRDAEWJ99aaoTeRyRZSe7zxRicciPd8Np4hb65ZaiKQ"
     let mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"

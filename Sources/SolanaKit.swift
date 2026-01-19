@@ -71,6 +71,9 @@ public final class Kit: ObservableObject {
     @Published public private(set) var isBalanceLoading: Bool = false
     @Published public private(set) var isTransactionsLoading: Bool = false
     @Published public private(set) var syncState: SyncState = .syncing
+    @Published public private(set) var balanceSyncState: SyncState = .syncing
+    @Published public private(set) var txSyncState: SyncState = .syncing
+    @Published public private(set) var splSyncState: SyncState = .syncing
     @Published public private(set) var error: SolanaKitError?
     @Published public private(set) var currentAccount: String?
     
@@ -147,10 +150,10 @@ public final class Kit: ObservableObject {
         defer { isLoading = false }
         self.syncState = .syncing
         defer {
-            if self.balance == nil {
-                self.syncState = .notSynced(SolanaKitError.syncError)
-            } else {
+            if self.splSyncState == .synced && self.balanceSyncState == .synced && self.txSyncState == .synced {
                 self.syncState = .synced
+            } else if self.splSyncState == .notSynced(_) || self.balanceSyncState == .synced || self.txSyncState == .synced {
+                
             }
         }
         
